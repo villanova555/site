@@ -64,7 +64,8 @@ select {
     <button onclick="setVideoSize('normal')">通常サイズ</button>
     <button onclick="setVideoSize('full-browser')">ブラウザ幅表示</button>
     <button onclick="setVideoSize('fullscreen')">全画面表示</button>
-    <button id="captureBtn">静止画撮影・保存</button>
+<!-- ここに margin-left を追加して少し隙間を空ける -->
+    <button id="captureBtn" style="margin-left: 15px;">静止画撮影・保存</button>
 </div>
 
 <video id="camera" class="size-normal" autoplay playsinline></video>
