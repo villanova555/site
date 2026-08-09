@@ -1,0 +1,2076 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Neon Illumination Simulator</title>
+
+<script src="https://cdn.jsdelivr.net/npm/p5@1.11.10/lib/p5.min.js"></script>
+
+<style>
+
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    background: #020208;
+
+    font-family:
+        Arial,
+        "Meiryo",
+        sans-serif;
+
+    color: white;
+}
+
+canvas {
+    display: block;
+}
+
+
+/* =====================================================
+   コントロールパネル
+   ===================================================== */
+
+#controlPanel {
+
+    position: fixed;
+
+    left: 20px;
+    bottom: 20px;
+
+    z-index: 10;
+
+    padding: 14px 18px;
+
+    max-width: calc(100vw - 40px);
+
+    border:
+        1px solid
+        rgba(255,255,255,0.25);
+
+    border-radius: 12px;
+
+    background:
+        rgba(5,5,15,0.90);
+
+    box-shadow:
+        0 0 20px rgba(0,0,0,0.8),
+        inset 0 0 15px
+        rgba(255,255,255,0.04);
+
+    backdrop-filter: blur(8px);
+}
+
+
+/* =====================================================
+   ボタン
+   ===================================================== */
+
+#controlPanel button {
+
+    min-width: 48px;
+
+    margin: 3px;
+
+    padding:
+        8px 11px;
+
+    border:
+        1px solid #555;
+
+    border-radius: 6px;
+
+    background: #111;
+
+    color: white;
+
+    cursor: pointer;
+
+    font-size: 14px;
+}
+
+#controlPanel button:hover {
+
+    background: #333;
+
+    box-shadow:
+        0 0 10px
+        rgba(255,255,255,0.5);
+}
+
+
+/* =====================================================
+   行
+   ===================================================== */
+
+.row {
+    margin-top: 8px;
+}
+
+.label {
+
+    display: inline-block;
+
+    width: 90px;
+}
+
+
+/* =====================================================
+   Delay
+   ===================================================== */
+
+#delayValue {
+
+    display: inline-block;
+
+    width: 60px;
+
+    text-align: right;
+}
+
+
+/* =====================================================
+   ステータス
+   ===================================================== */
+
+#status {
+
+    margin-top: 8px;
+
+    font-size: 13px;
+
+    color: #aaa;
+}
+
+
+/* =====================================================
+   シーケンサ
+   ===================================================== */
+
+#sequenceInput {
+
+    width: 500px;
+
+    max-width: 70vw;
+
+    padding:
+        8px 10px;
+
+    border:
+        1px solid #555;
+
+    border-radius: 6px;
+
+    background: #050509;
+
+    color: #fff;
+
+    font-family:
+        Consolas,
+        monospace;
+
+    font-size: 16px;
+
+    letter-spacing: 1px;
+}
+
+
+#sequenceMessage {
+
+    margin-top: 6px;
+
+    min-height: 18px;
+
+    font-size: 13px;
+
+    color: #aaa;
+}
+
+
+.sequenceHelp {
+
+    margin-top: 5px;
+
+    font-size: 12px;
+
+    color: #888;
+}
+
+</style>
+</head>
+
+
+<body>
+
+
+<div id="controlPanel">
+
+
+    <!-- =================================================
+         A～F
+         ================================================= -->
+
+    <div>
+
+        <button onclick="runPattern('A')">
+            A 全点灯
+        </button>
+
+        <button onclick="runPattern('B')">
+            B 全消灯
+        </button>
+
+        <button onclick="runPattern('C')">
+            C 点灯 →
+        </button>
+
+        <button onclick="runPattern('D')">
+            D 消灯 →
+        </button>
+
+        <button onclick="runPattern('E')">
+            E 1本 →
+        </button>
+
+        <button onclick="runPattern('F')">
+            F 1本 ←
+        </button>
+
+    </div>
+
+
+    <!-- =================================================
+         G～L
+         ================================================= -->
+
+    <div>
+
+        <button onclick="runPattern('G')">
+            G 増灯 →
+        </button>
+
+        <button onclick="runPattern('H')">
+            H 増灯 ←
+        </button>
+
+        <button onclick="runPattern('I')">
+            I 消灯 →
+        </button>
+
+        <button onclick="runPattern('J')">
+            J 消灯 ←
+        </button>
+
+        <button onclick="runPattern('K')">
+            K 3本 →
+        </button>
+
+        <button onclick="runPattern('L')">
+            L 3本 ←
+        </button>
+
+    </div>
+
+
+    <!-- =================================================
+         自動演出
+         ================================================= -->
+
+    <div>
+
+        <button onclick="startAutoPlay()">
+            X 自動Play
+        </button>
+
+        <button onclick="stopShow()">
+            Z 停止
+        </button>
+
+    </div>
+
+
+    <!-- =================================================
+         Delay
+         ================================================= -->
+
+    <div class="row">
+
+        <span class="label">
+            Delay
+        </span>
+
+        <input
+            id="delaySlider"
+            type="range"
+            min="50"
+            max="1000"
+            step="10"
+            value="300"
+            oninput="updateDelay(this.value)"
+        >
+
+        <span id="delayValue">
+            0.30秒
+        </span>
+
+    </div>
+
+
+    <!-- =================================================
+         カラー
+         ================================================= -->
+
+    <div class="row">
+
+        <span class="label">
+            カラー
+        </span>
+
+        <button onclick="changeColor('rainbow')">
+            RAINBOW
+        </button>
+
+        <button onclick="changeColor('cyan')">
+            CYAN
+        </button>
+
+        <button onclick="changeColor('pink')">
+            PINK
+        </button>
+
+        <button onclick="changeColor('blue')">
+            BLUE
+        </button>
+
+        <button onclick="changeColor('green')">
+            GREEN
+        </button>
+
+        <button onclick="changeColor('orange')">
+            ORANGE
+        </button>
+
+        <button onclick="changeColor('purple')">
+            PURPLE
+        </button>
+
+    </div>
+
+
+    <!-- =================================================
+         シーケンサ入力
+         ================================================= -->
+
+    <div class="row">
+
+        <span class="label">
+            Sequence
+        </span>
+
+        <input
+            id="sequenceInput"
+            type="text"
+            value="A03B03C32D32E32F32G32H32I32J32K32L32"
+            spellcheck="false"
+        >
+
+        <button onclick="playSequence()">
+            Play
+        </button>
+
+    </div>
+
+
+    <div class="sequenceHelp">
+
+        A～Lまたは _ ＋ 2桁数字　／　
+        例：E03_10G10H10
+
+    </div>
+
+
+    <div id="sequenceMessage"></div>
+
+
+    <!-- =================================================
+         ステータス
+         ================================================= -->
+
+    <div id="status">
+
+        Pattern : Z　 Status : STOP
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+
+/* =========================================================
+   基本設定
+   ========================================================= */
+
+const NUM_TUBES = 32;
+
+const BLOCK_SIZE = 3;
+
+let tubes = [];
+
+let delayTime = 300;
+
+let currentPattern = "Z";
+
+let running = false;
+
+let lastStepTime = 0;
+
+
+/* =========================================================
+   現在実行中のパターン情報
+   ========================================================= */
+
+let patternStep = 0;
+
+let patternLimit = 0;
+
+let patternRemaining = 0;
+
+
+/* =========================================================
+   実行モード
+   ========================================================= */
+
+let runMode = "none";
+
+
+/*
+   none
+   single ＝ ボタンによる単独実行
+   auto   ＝ X 自動Play
+   seq    ＝ 文字列シーケンサ
+*/
+
+
+/* =========================================================
+   シーケンサ
+   ========================================================= */
+
+let sequenceCommands = [];
+
+let sequenceCommandIndex = 0;
+
+let sequenceRunning = false;
+
+
+/* =========================================================
+   カラーパレット
+   ========================================================= */
+
+const colorSets = {
+
+    cyan: [
+        [0,255,255]
+    ],
+
+    pink: [
+        [255,40,180]
+    ],
+
+    blue: [
+        [50,120,255]
+    ],
+
+    green: [
+        [40,255,100]
+    ],
+
+    orange: [
+        [255,120,20]
+    ],
+
+    purple: [
+        [180,60,255]
+    ],
+
+    rainbow: [
+        [0,255,255],
+        [50,120,255],
+        [180,60,255],
+        [255,40,180],
+        [255,60,100],
+        [255,140,20],
+        [255,240,40],
+        [40,255,100]
+    ]
+};
+
+
+let selectedColor = "rainbow";
+
+
+/* =========================================================
+   X 自動Play
+   ========================================================= */
+
+const autoSequence = [
+
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "L"
+
+];
+
+let autoIndex = 0;
+
+
+/* =========================================================
+   p5.js 初期化
+   ========================================================= */
+
+function setup() {
+
+    createCanvas(
+        windowWidth,
+        windowHeight
+    );
+
+    pixelDensity(1);
+
+    createTubes();
+
+    updateStatus();
+}
+
+
+/* =========================================================
+   ネオン管生成
+   ========================================================= */
+
+function createTubes() {
+
+    tubes = [];
+
+    const margin = 70;
+
+    const usableWidth =
+        width - margin * 2;
+
+    const spacing =
+        usableWidth /
+        (NUM_TUBES - 1);
+
+
+    for (
+        let i = 0;
+        i < NUM_TUBES;
+        i++
+    ) {
+
+        tubes.push({
+
+            x:
+                margin +
+                i * spacing,
+
+            y1:
+                height * 0.18,
+
+            y2:
+                height * 0.82,
+
+            on: false,
+
+            brightness: 0,
+
+            color:
+                getTubeColor(i)
+        });
+    }
+}
+
+
+/* =========================================================
+   色取得
+   ========================================================= */
+
+function getTubeColor(index) {
+
+    const palette =
+        colorSets[selectedColor];
+
+    return palette[
+        index % palette.length
+    ];
+}
+
+
+/* =========================================================
+   メイン描画
+   ========================================================= */
+
+function draw() {
+
+    background(
+        2,
+        2,
+        8
+    );
+
+    drawBackground();
+
+    updateAnimation();
+
+    for (
+        let tube of tubes
+    ) {
+
+        updateBrightness(tube);
+
+        drawNeonTube(tube);
+    }
+
+    drawTitle();
+}
+
+
+/* =========================================================
+   背景
+   ========================================================= */
+
+function drawBackground() {
+
+    noStroke();
+
+    for (
+        let y = 0;
+        y < height;
+        y += 8
+    ) {
+
+        let d =
+            abs(
+                y - height / 2
+            ) /
+            (height / 2);
+
+        let v =
+            8 - d * 5;
+
+        fill(
+            v,
+            v,
+            v + 5
+        );
+
+        rect(
+            0,
+            y,
+            width,
+            8
+        );
+    }
+
+
+    for (
+        let i = 0;
+        i < 20;
+        i++
+    ) {
+
+        let x =
+            width *
+            i / 20;
+
+        fill(
+            20,
+            20,
+            40,
+            15
+        );
+
+        ellipse(
+            x,
+            height * 0.5,
+            300,
+            300
+        );
+    }
+}
+
+
+/* =========================================================
+   ネオン管描画
+   ========================================================= */
+
+function drawNeonTube(tube) {
+
+    const c =
+        tube.color;
+
+    const r = c[0];
+    const g = c[1];
+    const b = c[2];
+
+    const glow =
+        tube.brightness;
+
+    if (
+        glow <= 0.01
+    ) {
+        return;
+    }
+
+
+    push();
+
+    noStroke();
+
+
+    /*
+       大きなハロー
+    */
+
+    for (
+        let size = 90;
+        size >= 20;
+        size -= 10
+    ) {
+
+        let alpha =
+            glow *
+            map(
+                size,
+                90,
+                20,
+                5,
+                25
+            );
+
+        fill(
+            r,
+            g,
+            b,
+            alpha
+        );
+
+        rect(
+            tube.x - size / 2,
+            tube.y1,
+            size,
+            tube.y2 - tube.y1,
+            size / 3
+        );
+    }
+
+
+    /*
+       中間グロー
+    */
+
+    for (
+        let size = 30;
+        size >= 8;
+        size -= 4
+    ) {
+
+        let alpha =
+            glow *
+            map(
+                size,
+                30,
+                8,
+                20,
+                80
+            );
+
+        fill(
+            r,
+            g,
+            b,
+            alpha
+        );
+
+        rect(
+            tube.x - size / 2,
+            tube.y1,
+            size,
+            tube.y2 - tube.y1,
+            size / 4
+        );
+    }
+
+
+    /*
+       ネオン管本体
+    */
+
+    fill(
+        r,
+        g,
+        b,
+        255 * glow
+    );
+
+    rect(
+        tube.x - 5,
+        tube.y1,
+        10,
+        tube.y2 - tube.y1,
+        5
+    );
+
+
+    /*
+       中央の白い発光
+    */
+
+    fill(
+        255,
+        255,
+        255,
+        220 * glow
+    );
+
+    rect(
+        tube.x - 2,
+        tube.y1,
+        4,
+        tube.y2 - tube.y1,
+        2
+    );
+
+    pop();
+}
+
+
+/* =========================================================
+   明るさ
+   ========================================================= */
+
+function updateBrightness(tube) {
+
+    const target =
+        tube.on ? 1 : 0;
+
+    tube.brightness =
+        lerp(
+            tube.brightness,
+            target,
+            0.18
+        );
+}
+
+
+/* =========================================================
+   単独パターン実行
+   ========================================================= */
+
+function runPattern(pattern) {
+
+    stopShow(false);
+
+    runMode = "single";
+
+    currentPattern =
+        pattern;
+
+    patternStep = 0;
+
+    patternLimit =
+        getPatternLimit(pattern);
+
+    patternRemaining =
+        patternLimit;
+
+    lastStepTime =
+        millis();
+
+
+    initializePattern(
+        pattern
+    );
+
+
+    /*
+       A/Bは即時実行
+       ただしDelay時間ごとに
+       「繰り返し」を消化する
+    */
+
+    if (
+        pattern === "A" ||
+        pattern === "B"
+    ) {
+
+        patternRemaining =
+            patternLimit;
+
+        running = true;
+    }
+    else {
+
+        running = true;
+    }
+
+
+    updateStatus();
+}
+
+
+/* =========================================================
+   パターンの初期状態
+   ========================================================= */
+
+function initializePattern(pattern) {
+
+    switch (pattern) {
+
+        case "A":
+
+            allOn();
+
+            break;
+
+
+        case "B":
+
+            allOff();
+
+            break;
+
+
+        case "C":
+
+            allOff();
+
+            break;
+
+
+        case "D":
+
+            allOn();
+
+            break;
+
+
+        case "E":
+
+            allOff();
+
+            break;
+
+
+        case "F":
+
+            allOff();
+
+            break;
+
+
+        case "G":
+
+            allOff();
+
+            break;
+
+
+        case "H":
+
+            allOff();
+
+            break;
+
+
+        case "I":
+
+            allOn();
+
+            break;
+
+
+        case "J":
+
+            allOn();
+
+            break;
+
+
+        case "K":
+
+            allOff();
+
+            break;
+
+
+        case "L":
+
+            allOff();
+
+            break;
+    }
+}
+
+
+/* =========================================================
+   パターンの基本ステップ数
+   ========================================================= */
+
+function getPatternLimit(pattern) {
+
+    switch (pattern) {
+
+        case "A":
+        case "B":
+
+            return 1;
+
+
+        case "C":
+        case "D":
+        case "G":
+        case "H":
+        case "I":
+        case "J":
+
+            return NUM_TUBES;
+
+
+        case "E":
+        case "F":
+
+            return NUM_TUBES;
+
+
+        case "K":
+        case "L":
+
+            return NUM_TUBES + BLOCK_SIZE - 1;
+
+
+        default:
+
+            return 1;
+    }
+}
+
+
+/* =========================================================
+   アニメーション更新
+   ========================================================= */
+
+function updateAnimation() {
+
+    if (!running) {
+        return;
+    }
+
+
+    const now =
+        millis();
+
+
+    if (
+        now - lastStepTime <
+        delayTime
+    ) {
+
+        return;
+    }
+
+
+    lastStepTime =
+        now;
+
+
+    /*
+       シーケンサの停止命令
+    */
+
+    if (
+        currentPattern === "_"
+    ) {
+
+        executeSequencePause();
+
+        return;
+    }
+
+
+    /*
+       通常パターン
+    */
+
+    executePatternStep();
+
+
+    /*
+       パターン終了
+    */
+
+    if (
+        patternRemaining <= 0
+    ) {
+
+        finishCurrentPattern();
+    }
+
+
+    updateStatus();
+}
+
+
+/* =========================================================
+   通常パターン1ステップ実行
+   ========================================================= */
+
+function executePatternStep() {
+
+    switch (currentPattern) {
+
+        case "A":
+
+            allOn();
+
+            break;
+
+
+        case "B":
+
+            allOff();
+
+            break;
+
+
+        case "C":
+
+            if (
+                patternStep <
+                NUM_TUBES
+            ) {
+
+                tubes[
+                    patternStep
+                ].on = true;
+            }
+
+            break;
+
+
+        case "D":
+
+            if (
+                patternStep <
+                NUM_TUBES
+            ) {
+
+                tubes[
+                    patternStep
+                ].on = false;
+            }
+
+            break;
+
+
+        case "E":
+
+            allOff();
+
+            tubes[
+                patternStep %
+                NUM_TUBES
+            ].on = true;
+
+            break;
+
+
+        case "F":
+
+            allOff();
+
+            tubes[
+                NUM_TUBES -
+                1 -
+                (
+                    patternStep %
+                    NUM_TUBES
+                )
+            ].on = true;
+
+            break;
+
+
+        case "G":
+
+            if (
+                patternStep <
+                NUM_TUBES
+            ) {
+
+                tubes[
+                    patternStep
+                ].on = true;
+            }
+
+            break;
+
+
+        case "H":
+
+            if (
+                patternStep <
+                NUM_TUBES
+            ) {
+
+                tubes[
+                    NUM_TUBES -
+                    1 -
+                    patternStep
+                ].on = true;
+            }
+
+            break;
+
+
+        case "I":
+
+            if (
+                patternStep <
+                NUM_TUBES
+            ) {
+
+                tubes[
+                    patternStep
+                ].on = false;
+            }
+
+            break;
+
+
+        case "J":
+
+            if (
+                patternStep <
+                NUM_TUBES
+            ) {
+
+                tubes[
+                    NUM_TUBES -
+                    1 -
+                    patternStep
+                ].on = false;
+            }
+
+            break;
+
+
+        case "K":
+
+            allOff();
+
+            for (
+                let i = 0;
+                i < BLOCK_SIZE;
+                i++
+            ) {
+
+                const index =
+                    patternStep + i;
+
+                if (
+                    index >= 0 &&
+                    index < NUM_TUBES
+                ) {
+
+                    tubes[index].on =
+                        true;
+                }
+            }
+
+            break;
+
+
+        case "L":
+
+            allOff();
+
+            const start =
+                NUM_TUBES -
+                1 -
+                patternStep;
+
+            for (
+                let i = 0;
+                i < BLOCK_SIZE;
+                i++
+            ) {
+
+                const index =
+                    start - i;
+
+                if (
+                    index >= 0 &&
+                    index < NUM_TUBES
+                ) {
+
+                    tubes[index].on =
+                        true;
+                }
+            }
+
+            break;
+    }
+
+
+    patternStep++;
+
+    patternRemaining--;
+}
+
+
+/* =========================================================
+   パターン終了
+   ========================================================= */
+
+function finishCurrentPattern() {
+
+    running = false;
+
+
+    /*
+       シーケンサの場合
+       次の命令へ
+    */
+
+    if (
+        runMode === "seq"
+    ) {
+
+        sequenceCommandIndex++;
+
+        startNextSequenceCommand();
+
+        return;
+    }
+
+
+    /*
+       自動Playの場合
+       次のパターンへ
+    */
+
+    if (
+        runMode === "auto"
+    ) {
+
+        autoIndex++;
+
+        if (
+            autoIndex >=
+            autoSequence.length
+        ) {
+
+            autoIndex = 0;
+        }
+
+        startAutoPattern();
+
+        return;
+    }
+
+
+    updateStatus();
+}
+
+
+/* =========================================================
+   自動Play開始
+   ========================================================= */
+
+function startAutoPlay() {
+
+    stopShow(false);
+
+    runMode = "auto";
+
+    running = false;
+
+    autoIndex = 0;
+
+    startAutoPattern();
+}
+
+
+/* =========================================================
+   自動Play
+   ========================================================= */
+
+function startAutoPattern() {
+
+    if (
+        runMode !== "auto"
+    ) {
+
+        return;
+    }
+
+
+    currentPattern =
+        autoSequence[
+            autoIndex
+        ];
+
+
+    patternStep = 0;
+
+    patternLimit =
+        getPatternLimit(
+            currentPattern
+        );
+
+    patternRemaining =
+        patternLimit;
+
+
+    initializePattern(
+        currentPattern
+    );
+
+
+    lastStepTime =
+        millis();
+
+
+    running = true;
+
+
+    updateStatus();
+}
+
+
+/* =========================================================
+   停止
+   ========================================================= */
+
+function stopShow(changeStatus = true) {
+
+    running = false;
+
+    runMode = "none";
+
+    sequenceRunning = false;
+
+    currentPattern = "Z";
+
+
+    if (changeStatus) {
+
+        updateStatus();
+    }
+}
+
+
+/* =========================================================
+   Delay変更
+   ========================================================= */
+
+function updateDelay(value) {
+
+    delayTime =
+        Number(value);
+
+    document.getElementById(
+        "delayValue"
+    ).textContent =
+        (
+            delayTime / 1000
+        ).toFixed(2) +
+        "秒";
+}
+
+
+/* =========================================================
+   色変更
+   ========================================================= */
+
+function changeColor(name) {
+
+    selectedColor =
+        name;
+
+    for (
+        let i = 0;
+        i < tubes.length;
+        i++
+    ) {
+
+        tubes[i].color =
+            getTubeColor(i);
+    }
+}
+
+
+/* =========================================================
+   全点灯
+   ========================================================= */
+
+function allOn() {
+
+    for (
+        const tube of tubes
+    ) {
+
+        tube.on = true;
+    }
+}
+
+
+/* =========================================================
+   全消灯
+   ========================================================= */
+
+function allOff() {
+
+    for (
+        const tube of tubes
+    ) {
+
+        tube.on = false;
+    }
+}
+
+
+/* =========================================================
+   =========================================================
+   シーケンサ
+   =========================================================
+   ========================================================= */
+
+
+/* =========================================================
+   文字列チェック
+   ========================================================= */
+
+function validateSequence(text) {
+
+    const commands = [];
+
+    const length =
+        text.length;
+
+
+    /*
+       空文字
+    */
+
+    if (
+        length === 0
+    ) {
+
+        return {
+
+            ok: false,
+
+            message:
+                "エラー：実行指示文字列が空です。"
+        };
+    }
+
+
+    /*
+       3文字単位か
+    */
+
+    if (
+        length % 3 !== 0
+    ) {
+
+        return {
+
+            ok: false,
+
+            message:
+                "エラー：文字数が3の倍数ではありません。"
+                +
+                " 現在 "
+                +
+                length
+                +
+                "文字です。"
+                +
+                " A03 のように「指示文字＋2桁数字」で指定してください。"
+        };
+    }
+
+
+    /*
+       3文字ずつ解析
+    */
+
+    for (
+        let i = 0;
+        i < length;
+        i += 3
+    ) {
+
+        const command =
+            text[i];
+
+        const n1 =
+            text[i + 1];
+
+        const n2 =
+            text[i + 2];
+
+
+        /*
+           指示文字
+        */
+
+        if (
+            !(
+                command >= "A" &&
+                command <= "L"
+            ) &&
+            command !== "_"
+        ) {
+
+            return {
+
+                ok: false,
+
+                message:
+                    "エラー："
+                    +
+                    (i + 1)
+                    +
+                    "文字目「"
+                    +
+                    command
+                    +
+                    "」が不正です。"
+                    +
+                    " A～L または _ を指定してください。"
+            };
+        }
+
+
+        /*
+           数字チェック
+        */
+
+        if (
+            !(
+                n1 >= "0" &&
+                n1 <= "9"
+            )
+            ||
+            !(
+                n2 >= "0" &&
+                n2 <= "9"
+            )
+        ) {
+
+            return {
+
+                ok: false,
+
+                message:
+                    "エラー："
+                    +
+                    (i + 2)
+                    +
+                    "～"
+                    +
+                    (i + 3)
+                    +
+                    "文字目の繰り返し数「"
+                    +
+                    n1 + n2
+                    +
+                    "」が不正です。"
+                    +
+                    " 00～99の2桁数字を指定してください。"
+            };
+        }
+
+
+        const repeat =
+            Number(
+                n1 + n2
+            );
+
+
+        /*
+           00はエラーにする
+        */
+
+        if (
+            repeat === 0
+        ) {
+
+            return {
+
+                ok: false,
+
+                message:
+                    "エラー："
+                    +
+                    (i + 1)
+                    +
+                    "文字目の指示「"
+                    +
+                    command +
+                    "00"
+                    +
+                    "」は実行回数が0です。"
+                    +
+                    " 01～99を指定してください。"
+            };
+        }
+
+
+        commands.push({
+
+            command:
+                command,
+
+            repeat:
+                repeat
+        });
+    }
+
+
+    return {
+
+        ok: true,
+
+        commands:
+            commands,
+
+        message:
+            "チェックOK："
+            +
+            commands.length
+            +
+            "個の命令を認識しました。"
+    };
+}
+
+
+/* =========================================================
+   Play
+   ========================================================= */
+
+function playSequence() {
+
+    /*
+       まず停止
+    */
+
+    stopShow(false);
+
+
+    const input =
+        document.getElementById(
+            "sequenceInput"
+        );
+
+
+    const text =
+        input.value.trim();
+
+
+    /*
+       エラーチェック
+    */
+
+    const result =
+        validateSequence(text);
+
+
+    const message =
+        document.getElementById(
+            "sequenceMessage"
+        );
+
+
+    if (
+        !result.ok
+    ) {
+
+        message.style.color =
+            "#ff6688";
+
+        message.textContent =
+            result.message;
+
+        return;
+    }
+
+
+    /*
+       正常
+    */
+
+    message.style.color =
+        "#66ffcc";
+
+    message.textContent =
+        result.message;
+
+
+    /*
+       コマンドを保存
+    */
+
+    sequenceCommands =
+        result.commands;
+
+
+    sequenceCommandIndex = 0;
+
+    sequenceRunning = true;
+
+    runMode = "seq";
+
+
+    /*
+       最初の命令を実行
+    */
+
+    startNextSequenceCommand();
+}
+
+
+/* =========================================================
+   次のシーケンサ命令
+   ========================================================= */
+
+function startNextSequenceCommand() {
+
+    if (
+        !sequenceRunning ||
+        runMode !== "seq"
+    ) {
+
+        return;
+    }
+
+
+    /*
+       最後まで行ったら
+       先頭へ戻る
+    */
+
+    if (
+        sequenceCommandIndex >=
+        sequenceCommands.length
+    ) {
+
+        sequenceCommandIndex = 0;
+    }
+
+
+    const cmd =
+        sequenceCommands[
+            sequenceCommandIndex
+        ];
+
+
+    currentPattern =
+        cmd.command;
+
+
+    patternStep = 0;
+
+    patternLimit =
+        getPatternLimit(
+            currentPattern
+        );
+
+
+    patternRemaining =
+        cmd.repeat;
+
+
+    /*
+       一時停止 _
+    */
+
+    if (
+        currentPattern === "_"
+    ) {
+
+        running = true;
+
+        lastStepTime =
+            millis();
+
+        updateStatus();
+
+        return;
+    }
+
+
+    /*
+       通常パターン
+    */
+
+    initializePattern(
+        currentPattern
+    );
+
+
+    running = true;
+
+    lastStepTime =
+        millis();
+
+
+    updateStatus();
+}
+
+
+/* =========================================================
+   シーケンサ一時停止
+   ========================================================= */
+
+function executeSequencePause() {
+
+    patternRemaining--;
+
+    /*
+       1ステップ＝Delay時間
+    */
+
+    if (
+        patternRemaining <= 0
+    ) {
+
+        running = false;
+
+        sequenceCommandIndex++;
+
+        startNextSequenceCommand();
+    }
+
+
+    updateStatus();
+}
+
+
+/* =========================================================
+   タイトル
+   ========================================================= */
+
+function drawTitle() {
+
+    push();
+
+    textAlign(
+        CENTER,
+        CENTER
+    );
+
+    fill(
+        255,
+        255,
+        255,
+        180
+    );
+
+    textSize(24);
+
+    text(
+        "NEON ILLUMINATION",
+        width / 2,
+        45
+    );
+
+    pop();
+}
+
+
+/* =========================================================
+   ステータス
+   ========================================================= */
+
+function updateStatus() {
+
+    let state =
+        running
+            ? "RUNNING"
+            : "STOP";
+
+
+    let modeText = "";
+
+
+    if (
+        runMode === "auto"
+    ) {
+
+        modeText =
+            " / AUTO PLAY";
+    }
+
+    else if (
+        runMode === "seq"
+    ) {
+
+        modeText =
+            " / SEQUENCER";
+    }
+
+
+    document.getElementById(
+        "status"
+    ).textContent =
+
+        "Pattern : "
+        +
+        currentPattern
+        +
+        "　 Status : "
+        +
+        state
+        +
+        modeText;
+}
+
+
+/* =========================================================
+   ウインドウサイズ変更
+   ========================================================= */
+
+function windowResized() {
+
+    resizeCanvas(
+        windowWidth,
+        windowHeight
+    );
+
+    createTubes();
+}
+
+</script>
+
+</body>
+</html>
