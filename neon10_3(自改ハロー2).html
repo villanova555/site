@@ -1,0 +1,4356 @@
+<!--
+============================================================
+ Neon Tube Visual Simulator
+ Version 1.1(myVer.2：Tips部分を自分で手修正 ハローパラメータを派手に 1496行 シーケンサ例示を長く 679行)
+ 2026-08-10
+
+ Ver.1.1 変更内容
+ ・A～UボタンにマウスオーバーTipsを追加
+ ・Helpボタン追加
+ ・ヘルプをフローティングウインドウで表示
+ ・A～U命令一覧を表示
+ ・シーケンサ書式をヘルプに表示
+ ・ネオン管の光芒パラメータにコメントを追加
+============================================================
+-->
+
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Neon Tube Visual Simulator Ver.1.1</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.1/p5.min.js"></script>
+
+
+<style>
+
+/* =========================================================
+   基本
+   ========================================================= */
+
+html,
+body {
+
+    margin: 0;
+    padding: 0;
+
+    background: #020205;
+
+    color: #ddd;
+
+    font-family:
+        "Segoe UI",
+        "Yu Gothic",
+        Meiryo,
+        sans-serif;
+
+}
+
+body {
+
+    overflow-x: hidden;
+
+}
+
+
+/* =========================================================
+   コントロールパネル
+   ========================================================= */
+
+#controlPanel {
+
+    background: #111116;
+
+    border-top: 1px solid #333;
+
+    padding: 12px;
+
+}
+
+
+.controlRow {
+
+    display: flex;
+
+    flex-wrap: wrap;
+
+    align-items: center;
+
+    gap: 7px;
+
+    margin-bottom: 8px;
+
+}
+
+
+/* =========================================================
+   ボタン
+   ========================================================= */
+
+button {
+
+    background: #24242c;
+
+    color: #eee;
+
+    border: 1px solid #555;
+
+    border-radius: 5px;
+
+    padding: 7px 11px;
+
+    font-size: 14px;
+
+    cursor: pointer;
+
+}
+
+
+button:hover {
+
+    background: #3a3a46;
+
+}
+
+
+button:active {
+
+    transform: translateY(1px);
+
+}
+
+
+.patternButton {
+
+    min-width: 44px;
+
+}
+
+
+.specialButton {
+
+    min-width: 90px;
+
+}
+
+
+/* =========================================================
+   入力
+   ========================================================= */
+
+input[type="range"] {
+
+    width: 180px;
+
+}
+
+
+input[type="text"] {
+
+    flex: 1;
+
+    min-width: 300px;
+
+    background: #050507;
+
+    color: #fff;
+
+    border: 1px solid #555;
+
+    border-radius: 4px;
+
+    padding: 7px;
+
+    font-family: monospace;
+
+    font-size: 16px;
+
+}
+
+
+select {
+
+    background: #08080b;
+
+    color: white;
+
+    border: 1px solid #555;
+
+    padding: 6px;
+
+    border-radius: 4px;
+
+}
+
+
+label {
+
+    white-space: nowrap;
+
+}
+
+
+.small {
+
+    font-size: 12px;
+
+    color: #999;
+
+}
+
+
+#status {
+
+    margin-top: 5px;
+
+    color: #aaa;
+
+    font-family: monospace;
+
+}
+
+
+#message {
+
+    min-height: 20px;
+
+    margin-top: 5px;
+
+    color: #ffcf70;
+
+    font-family: monospace;
+
+}
+
+
+/* =========================================================
+   Helpウインドウ
+   ========================================================= */
+
+#helpWindow {
+
+    display: none;
+
+    position: fixed;
+
+    z-index: 1000;
+
+    left: 50%;
+
+    top: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    width: min(760px, 90vw);
+
+    max-height: 82vh;
+
+    overflow-y: auto;
+
+    background: rgba(15, 15, 22, 0.97);
+
+    border: 1px solid #666;
+
+    border-radius: 8px;
+
+    box-shadow:
+        0 0 30px rgba(0,0,0,0.8);
+
+}
+
+
+#helpHeader {
+
+    position: sticky;
+
+    top: 0;
+
+    background: #181820;
+
+    padding: 12px 16px;
+
+    border-bottom: 1px solid #444;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+}
+
+
+#helpHeader h2 {
+
+    margin: 0;
+
+    font-size: 18px;
+
+}
+
+
+#helpClose {
+
+    min-width: 40px;
+
+}
+
+
+#helpContent {
+
+    padding: 16px;
+
+}
+
+
+.helpTable {
+
+    width: 100%;
+
+    border-collapse: collapse;
+
+}
+
+
+.helpTable th,
+.helpTable td {
+
+    border-bottom: 1px solid #333;
+
+    padding: 7px;
+
+    text-align: left;
+
+    vertical-align: top;
+
+}
+
+
+.helpTable th {
+
+    color: #aaa;
+
+    font-weight: normal;
+
+}
+
+
+.helpCommand {
+
+    width: 45px;
+
+    font-family: monospace;
+
+    font-size: 18px;
+
+    font-weight: bold;
+
+    color: #fff;
+
+}
+
+
+.helpExample {
+
+    margin-top: 18px;
+
+    padding: 12px;
+
+    background: #08080c;
+
+    border: 1px solid #333;
+
+    border-radius: 5px;
+
+    font-family: monospace;
+
+}
+
+
+.helpNote {
+
+    color: #aaa;
+
+    font-size: 13px;
+
+    line-height: 1.6;
+
+}
+
+
+/* =========================================================
+   Tips
+   ========================================================= */
+
+/*
+   title属性によるブラウザ標準Tipsを使用。
+   追加のJavaScriptを必要としない。
+*/
+
+
+canvas {
+
+    display: block;
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<!-- =======================================================
+     コントロール
+     ======================================================= -->
+
+<div id="controlPanel">
+
+
+    <!-- A～U -->
+
+    <div class="controlRow">
+
+
+        <button
+            class="patternButton"
+            title="A：全点灯 "
+            onclick="runPattern('A')">A</button>
+
+        <button
+            class="patternButton"
+            title="B：全消灯 "
+            onclick="runPattern('B')">B</button>
+
+        <button
+            class="patternButton"
+            title="C：左→右点灯"
+            onclick="runPattern('C')">C</button>
+
+        <button
+            class="patternButton"
+            title="D：左→右消灯 "
+            onclick="runPattern('D')">D</button>
+
+        <button
+            class="patternButton"
+            title="E：ランナー→"
+            onclick="runPattern('E')">E</button>
+
+        <button
+            class="patternButton"
+            title="F：←ランナー "
+            onclick="runPattern('F')">F</button>
+
+        <button
+            class="patternButton"
+            title="G：左→右増灯"
+            onclick="runPattern('G')">G</button>
+
+        <button
+            class="patternButton"
+            title="H：右→左増灯"
+            onclick="runPattern('H')">H</button>
+
+        <button
+            class="patternButton"
+            title="I：左→右消灯 "
+            onclick="runPattern('I')">I</button>
+
+        <button
+            class="patternButton"
+            title="J：右→左消灯 "
+            onclick="runPattern('J')">J</button>
+
+        <button
+            class="patternButton"
+            title="K：3本ブロック→ "
+            onclick="runPattern('K')">K</button>
+
+        <button
+            class="patternButton"
+            title="L：←3本ブロック "
+            onclick="runPattern('L')">L</button>
+
+        <button
+            class="patternButton"
+            title="M：積み上げ→ "
+            onclick="runPattern('M')">M</button>
+
+        <button
+            class="patternButton"
+            title="N：←積み上げ "
+            onclick="runPattern('N')">N</button>
+
+        <button
+            class="patternButton"
+            title="O：追越し→ "
+            onclick="runPattern('O')">O</button>
+
+        <button
+            class="patternButton"
+            title="P：←追越し"
+            onclick="runPattern('P')">P</button>
+
+        <button
+            class="patternButton"
+            title="Q：幕開"
+            onclick="runPattern('Q')">Q</button>
+
+        <button
+            class="patternButton"
+            title="R：幕閉"
+            onclick="runPattern('R')">R</button>
+
+        <button
+            class="patternButton"
+            title="S：消 拡大"
+            onclick="runPattern('S')">S</button>
+
+        <button
+            class="patternButton"
+            title="T：縮小 消"
+            onclick="runPattern('T')">T</button>
+
+        <button
+            class="patternButton"
+            title="U：ランダム"
+            onclick="runPattern('U')">U</button>
+
+
+        <button class="specialButton"
+                title="A～Uの演出を自動的に順番に実行"
+                onclick="startAuto()">
+            自動演出
+        </button>
+
+
+        <button class="specialButton"
+                title="現在実行中の演出を停止して全消灯"
+                onclick="stopAll()">
+            停止
+        </button>
+
+
+        <button class="specialButton"
+                title="A～U各演出、シーケンサの使い方を表示"
+                onclick="showHelp()">
+            Help
+        </button>
+
+
+    </div>
+
+
+    <!-- Delay / 色 -->
+
+    <div class="controlRow">
+
+
+        <label>
+
+            Delay
+
+            <input id="delaySlider"
+                   type="range"
+                   min="50"
+                   max="1000"
+                   step="10"
+                   value="120"
+                   oninput="updateDelayLabel()">
+
+            <span id="delayLabel">
+                120 ms
+            </span>
+
+        </label>
+
+
+        <label>
+
+            色
+
+            <select id="colorSelect"
+                    onchange="changeColor()">
+
+                <option value="rainbow">
+                    レインボー
+                </option>
+
+                <option value="red">
+                    赤
+                </option>
+
+                <option value="orange">
+                    橙
+                </option>
+
+                <option value="yellow">
+                    黄
+                </option>
+
+                <option value="green">
+                    緑
+                </option>
+
+                <option value="cyan">
+                    水色
+                </option>
+
+                <option value="blue">
+                    青
+                </option>
+
+                <option value="purple">
+                    紫
+                </option>
+
+                <option value="pink">
+                    ピンク
+                </option>
+
+            </select>
+
+        </label>
+
+
+    </div>
+
+
+    <!-- オプション -->
+
+    <div class="controlRow">
+
+
+        <label>
+
+            <input id="instantCheck"
+                   type="checkbox"
+                   checked>
+
+            瞬時点滅
+
+        </label>
+
+
+        <label>
+
+            <input id="afterImageCheck"
+                   type="checkbox">
+
+            残像効果
+
+        </label>
+
+
+        <span class="small">
+
+            瞬時点滅：
+            ネオン管の点灯・消灯を瞬間的に変更
+
+        </span>
+
+
+    </div>
+
+
+    <!-- シーケンサ -->
+
+    <div class="controlRow">
+
+
+        <span>
+            シーケンサ：
+        </span>
+
+
+        <input id="sequenceInput"
+               type="text"
+               value="A01_03R01B01_03A01E01F01_03E01F01_03U01"
+               placeholder="例：A01E03_03B01">
+
+
+        <button class="specialButton"
+                title="入力したシーケンスを無限ループで実行"
+                onclick="playSequence()">
+
+            Play
+
+        </button>
+
+
+    </div>
+
+
+    <div class="small">
+
+        指示形式：
+        A～U または _ ＋ 2桁回数。
+        例：E03 は Eを3回。
+        E03_10 は Eを3回実行後、10回分待機。
+
+    </div>
+
+
+    <div id="status">
+        Ready
+    </div>
+
+
+    <div id="message">
+    </div>
+
+
+</div>
+
+
+<!-- =======================================================
+     Help
+     ======================================================= -->
+
+<div id="helpWindow">
+
+
+    <div id="helpHeader">
+
+        <h2>
+            Neon Tube Visual Simulator ― Help
+        </h2>
+
+
+        <button id="helpClose"
+                onclick="hideHelp()">
+
+            ×
+
+        </button>
+
+    </div>
+
+
+    <div id="helpContent">
+
+
+        <table class="helpTable">
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        命令
+                    </th>
+
+                    <th>
+                        演出
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+
+                <tr>
+                    <td class="helpCommand">A</td>
+                    <td>
+                        全点灯。
+                        全てのネオン管を一斉に点灯します。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">B</td>
+                    <td>
+                        全消灯。
+                        全てのネオン管を一斉に消灯します。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">C</td>
+                    <td>
+                        左→右 点灯。
+                        左から1本ずつ順番に点灯します。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">D</td>
+                    <td>
+                        左→右 消灯。
+                        左から1本ずつ順番に消灯します。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">E</td>
+                    <td>
+                        1本ランナー 左→右。
+                        1本だけ点灯したネオン管が左から右へ走ります。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">F</td>
+                    <td>
+                        1本ランナー 右→左。
+                        1本だけ点灯したネオン管が右から左へ走ります。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">G</td>
+                    <td>
+                        増灯 左→右。
+                        左から右へ点灯しているネオン管が増えていきます。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">H</td>
+                    <td>
+                        増灯 右→左。
+                        右から左へ点灯しているネオン管が増えていきます。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">I</td>
+                    <td>
+                        消灯 左→右。
+                        全点灯から左側から順番に消灯します。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">J</td>
+                    <td>
+                        消灯 右→左。
+                        全点灯から右側から順番に消灯します。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">K</td>
+                    <td>
+                        3本ランナー 左→右。
+                        3本のネオン管がブロックになって左から右へ走ります。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">L</td>
+                    <td>
+                        3本ランナー 右→左。
+                        3本のネオン管がブロックになって右から左へ走ります。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">M</td>
+                    <td>
+                        積み上げ 左→右。
+                        走った後ろにネオン管を残しながら、左から右へ積み上げます。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">N</td>
+                    <td>
+                        積み上げ 右→左。
+                        走った後ろにネオン管を残しながら、右から左へ積み上げます。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">O</td>
+                    <td>
+                        追越し 左→右。
+                        連続して伸びる点灯グループを後方のランナーが追い越し、
+                        一番前へ出て固定していきます。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">P</td>
+                    <td>
+                        追越し 右→左。
+                        Oの右→左バージョンです。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">Q</td>
+                    <td>
+                        幕開。
+                        中央から左右へ点灯範囲が広がっていきます。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">R</td>
+                    <td>
+                        幕閉。
+                        左右から中央へ点灯範囲が縮まっていきます。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">S</td>
+                    <td>
+                        消拡大。
+                        全点灯から中央→両端へ順番に消灯します。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">T</td>
+                    <td>
+                        縮小消。
+                        全点灯から両端→中央へ順番に消灯します。
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <td class="helpCommand">U</td>
+                    <td>
+                        ランダム。
+                        ネオン管をランダムに点灯・消灯します。
+                    </td>
+                </tr>
+
+
+            </tbody>
+
+        </table>
+
+
+        <div class="helpExample">
+
+            <strong>
+                シーケンサ
+            </strong>
+
+            <br><br>
+
+            A01E03_10B01
+
+            <br><br>
+
+            A01：
+            Aを1回
+
+            <br>
+
+            E03：
+            Eを3回
+
+            <br>
+
+            _10：
+            Delay × 10 待機
+
+            <br>
+
+            B01：
+            Bを1回
+
+        </div>
+
+
+        <div class="helpNote">
+
+            <br>
+
+            シーケンサの命令は必ず3文字単位です。
+            <br>
+
+            1文字目：
+            A～U または _
+
+            <br>
+
+            2～3文字目：
+            01～99の2桁数字
+
+            <br><br>
+
+            例えば
+
+            <br>
+
+            E03
+
+            <br>
+
+            は「Eを3回」です。
+            「3」という数字は、Eの移動距離ではありません。
+
+            <br><br>
+
+            「_」は一時停止です。
+            例えば
+
+            <br>
+
+            _10
+
+            <br>
+
+            なら、Delay時間の10倍だけ待機します。
+
+        </div>
+
+
+        <div class="helpExample">
+
+            <strong>
+                操作設定
+            </strong>
+
+            <br><br>
+
+            Delay：
+            50～1000ms
+
+            <br>
+
+            色：
+            レインボー／各色
+
+            <br>
+
+            瞬時点滅：
+            初期ON
+
+            <br>
+
+            残像効果：
+            初期OFF
+
+        </div>
+
+
+        <div class="helpExample">
+
+            <strong>
+                ネオン管の光芒調整
+            </strong>
+
+            <br><br>
+
+            ソース中の
+            <code>drawNeonTube()</code>
+            を調整してください。
+
+            <br><br>
+
+            外側の光芒範囲：
+
+            <br>
+
+            <code>w = 60</code>
+
+            <br>
+
+            数値を大きくすると光芒が広がります。
+
+            <br><br>
+
+            光芒の内側：
+
+            <br>
+
+            <code>w &gt;= 12</code>
+
+            <br>
+
+            数値を大きくすると、管の近くの光が太くなります。
+
+            <br><br>
+
+            光芒の濃さ：
+
+            <br>
+
+            <code>map(w, 60, 12, 5, 28)</code>
+
+            <br>
+
+            最後の
+            <code>5</code>
+            と
+            <code>28</code>
+            が光芒の透明度です。
+
+        </div>
+
+
+    </div>
+
+</div>
+
+
+<script>
+
+/* =========================================================
+   基本設定
+   ========================================================= */
+
+const NUM_TUBES = 36;
+
+let tubes = [];
+
+let tubeWidth = 13;
+
+let tubeHeight = 250;
+
+let delayTime = 120;
+
+let selectedColor = "rainbow";
+
+let running = false;
+
+let runMode = "single";
+
+let currentPattern = "";
+
+let lastStepTime = 0;
+
+let patternStep = 0;
+
+let patternRepeat = 0;
+
+let patternRepeatTarget = 1;
+
+
+/* =========================================================
+   自動演出
+   ========================================================= */
+
+const autoSequence = [
+
+    "A",
+    "B",
+    "C",
+    "B",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "K",
+    "L",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "U",
+    "O",
+    "P",
+    "M",
+    "N"
+
+];
+
+let autoIndex = 0;
+
+
+/* =========================================================
+   シーケンサ
+   ========================================================= */
+
+let sequenceCommands = [];
+
+let sequenceCommandIndex = 0;
+
+let sequencePause = false;
+
+let sequencePauseEnd = 0;
+
+
+/* =========================================================
+   移動ランナー
+   ========================================================= */
+
+let movingBarActive = false;
+
+let movingBarX = 0;
+
+let movingDirection = 1;
+
+let movingBarColor;
+
+
+/* =========================================================
+   3本ブロック
+   ========================================================= */
+
+let blockPositions = [];
+
+let blockActive = false;
+
+
+/* =========================================================
+   M/N 積み上げ
+   ========================================================= */
+
+let stackActive = false;
+
+let stackDirection = 1;
+
+let stackFixedCount = 0;
+
+let stackRunnerX = 0;
+
+let stackColor;
+
+
+/* =========================================================
+   O/P 追越し
+   ========================================================= */
+
+let overtakeActive = false;
+
+let overtakeDirection = 1;
+
+let overtakeRunnerX = 0;
+
+let overtakeTargetX = 0;
+
+let overtakeGroupStart = 0;
+
+let overtakeGroupEnd = 0;
+
+let overtakeCount = 0;
+
+
+/* =========================================================
+   残像
+   ========================================================= */
+
+let afterImages = [];
+
+
+/* =========================================================
+   p5 setup
+   ========================================================= */
+
+function setup(){
+
+    createCanvas(
+        windowWidth,
+        Math.max(
+            450,
+            windowHeight - 230
+        )
+    );
+
+    pixelDensity(1);
+
+    initializeTubes();
+
+    updateStatus();
+
+}
+
+
+/* =========================================================
+   Tube初期化
+   ========================================================= */
+
+function initializeTubes(){
+
+    tubes = [];
+
+    const margin = 30;
+
+    const spacing =
+        (
+            width -
+            margin * 2
+        ) /
+        NUM_TUBES;
+
+
+    for(
+        let i = 0;
+        i < NUM_TUBES;
+        i++
+    ){
+
+        tubes.push({
+
+            x:
+                margin +
+                spacing * i +
+                spacing / 2,
+
+            on: false,
+
+            color:
+                getTubeColor(i)
+
+        });
+
+    }
+
+}
+
+
+/* =========================================================
+   draw
+   ========================================================= */
+
+function draw(){
+
+    background(
+        2,
+        2,
+        5
+    );
+
+    drawBackgroundGlow();
+
+    drawTubes();
+
+    drawAfterImages();
+
+    drawMovingObjects();
+
+
+    if(running){
+
+        updateAnimation();
+
+    }
+
+}
+
+
+/* =========================================================
+   背景
+   ========================================================= */
+
+function drawBackgroundGlow(){
+
+    noStroke();
+
+
+    for(
+        let r = 500;
+        r > 20;
+        r -= 20
+    ){
+
+        let a =
+            map(
+                r,
+                500,
+                20,
+                0,
+                4
+            );
+
+
+        fill(
+            30,
+            10,
+            45,
+            a
+        );
+
+
+        ellipse(
+            width / 2,
+            height / 2,
+            r * 1.8,
+            r
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   ネオン管描画
+   ========================================================= */
+
+function drawTubes(){
+
+    for(
+        let i = 0;
+        i < tubes.length;
+        i++
+    ){
+
+        const t =
+            tubes[i];
+
+
+        if(!t.on){
+
+            continue;
+
+        }
+
+
+        drawNeonTube(
+            t.x,
+            t.color
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   ネオン管1本
+   ========================================================= */
+
+function drawNeonTube(x, c){
+
+    push();
+
+
+    colorMode(RGB);
+
+
+    /*
+     * =====================================================
+     * 光芒
+     * =====================================================
+     *
+     * ここを変更するとネオンの「漏れ出る光」を調整できる。
+     *
+     * w = 60
+     *     → 光芒の最大範囲。
+     *        大きくすると広い範囲まで光が広がる。
+     *
+     * w >= 12
+     *     → 光芒の内側の太さ。
+     *        大きくすると管の近くの光が太くなる。
+     *
+     * w -= 8
+     *     → 光芒を何段階に分けて描くか。
+     *        数値を小さくすると滑らかになるが描画量が増える。
+     *
+     * map(..., 5, 28)
+     *     → 光芒の透明度。
+     *        5  = 外側の淡い光
+     *        28 = 内側の濃い光
+     *
+     * 例えば派手にしたい場合：
+     *
+     *     w = 90
+     *
+     *     初期：map(w,60,12,5,28)  => map(w, 90, 12, 6, 45)　
+     *
+     * =====================================================
+     */
+
+
+    for(
+        let w = 60;
+        w >= 12;
+        w -= 8
+    ){
+
+        const alpha =
+            map(
+                w,
+                90,
+                12,
+                6,
+                45
+            );
+
+
+        stroke(
+            red(c),
+            green(c),
+            blue(c),
+            alpha
+        );
+
+
+        strokeWeight(w);
+
+
+        line(
+            x,
+            height * 0.17,
+            x,
+            height * 0.83
+        );
+
+    }
+
+
+    /*
+     * ネオン管本体
+     */
+
+    stroke(
+        red(c),
+        green(c),
+        blue(c)
+    );
+
+
+    strokeWeight(
+        tubeWidth
+    );
+
+
+    line(
+        x,
+        height * 0.17,
+        x,
+        height * 0.83
+    );
+
+
+    /*
+     * 中心の白い発光
+     */
+
+    stroke(
+        255,
+        255,
+        255,
+        210
+    );
+
+
+    strokeWeight(
+        Math.max(
+            2,
+            tubeWidth * 0.25
+        )
+    );
+
+
+    line(
+        x,
+        height * 0.17,
+        x,
+        height * 0.83
+    );
+
+
+    pop();
+
+}
+
+
+/* =========================================================
+   移動オブジェクト
+   ========================================================= */
+
+function drawMovingObjects(){
+
+
+    if(movingBarActive){
+
+        drawNeonTube(
+            movingBarX,
+            movingBarColor
+        );
+
+    }
+
+
+    if(blockActive){
+
+        for(
+            let i = 0;
+            i < blockPositions.length;
+            i++
+        ){
+
+            drawNeonTube(
+                blockPositions[i],
+                getRainbowOrNormalColor(i)
+            );
+
+        }
+
+    }
+
+
+    if(stackActive){
+
+        drawNeonTube(
+            stackRunnerX,
+            stackColor
+        );
+
+    }
+
+
+    if(overtakeActive){
+
+        drawNeonTube(
+            overtakeRunnerX,
+            getOvertakeRunnerColor()
+        );
+
+    }
+
+}
+
+
+/* =========================================================
+   残像
+   ========================================================= */
+
+function drawAfterImages(){
+
+    if(
+        !document.getElementById(
+            "afterImageCheck"
+        ).checked
+    ){
+
+        afterImages = [];
+
+        return;
+
+    }
+
+
+    for(
+        let i =
+            afterImages.length - 1;
+
+        i >= 0;
+
+        i--
+    ){
+
+        const a =
+            afterImages[i];
+
+
+        a.life -= 5;
+
+
+        if(a.life <= 0){
+
+            afterImages.splice(
+                i,
+                1
+            );
+
+            continue;
+
+        }
+
+
+        push();
+
+
+        for(
+            let w = 50;
+            w >= 8;
+            w -= 8
+        ){
+
+            stroke(
+                red(a.color),
+                green(a.color),
+                blue(a.color),
+                a.life *
+                map(
+                    w,
+                    50,
+                    8,
+                    0.05,
+                    0.25
+                )
+            );
+
+
+            strokeWeight(w);
+
+
+            line(
+                a.x,
+                height * 0.17,
+                a.x,
+                height * 0.83
+            );
+
+        }
+
+
+        pop();
+
+    }
+
+}
+
+
+function addAfterImage(x, c){
+
+    if(
+        !document.getElementById(
+            "afterImageCheck"
+        ).checked
+    ){
+
+        return;
+
+    }
+
+
+    afterImages.push({
+
+        x: x,
+
+        color: c,
+
+        life: 80
+
+    });
+
+
+    if(
+        afterImages.length > 40
+    ){
+
+        afterImages.shift();
+
+    }
+
+}
+
+
+/* =========================================================
+   アニメーション
+   ========================================================= */
+
+function updateAnimation(){
+
+    if(!running){
+
+        return;
+
+    }
+
+
+    if(
+        currentPattern === "_" &&
+        runMode === "seq"
+    ){
+
+        updatePause();
+
+        return;
+
+    }
+
+
+    if(
+        currentPattern === "E" ||
+        currentPattern === "F"
+    ){
+
+        updateSingleRunner();
+
+        return;
+
+    }
+
+
+    if(
+        currentPattern === "K" ||
+        currentPattern === "L"
+    ){
+
+        updateBlockRunner();
+
+        return;
+
+    }
+
+
+    if(
+        currentPattern === "M" ||
+        currentPattern === "N"
+    ){
+
+        updateStack();
+
+        return;
+
+    }
+
+
+    if(
+        currentPattern === "O" ||
+        currentPattern === "P"
+    ){
+
+        updateOvertake();
+
+        return;
+
+    }
+
+
+    const now =
+        millis();
+
+
+    if(
+        now -
+        lastStepTime <
+        delayTime
+    ){
+
+        return;
+
+    }
+
+
+    lastStepTime =
+        now;
+
+
+    executePatternStep();
+
+}
+
+
+/* =========================================================
+   通常パターン
+   ========================================================= */
+
+function executePatternStep(){
+
+    switch(currentPattern){
+
+
+        case "A":
+
+            allOn();
+
+            completeOnePattern();
+
+            break;
+
+
+        case "B":
+
+            allOff();
+
+            completeOnePattern();
+
+            break;
+
+
+        case "C":
+
+            if(
+                patternStep <
+                NUM_TUBES
+            ){
+
+                setTube(
+                    patternStep,
+                    true
+                );
+
+                patternStep++;
+
+            }
+            else{
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        case "D":
+
+            if(
+                patternStep <
+                NUM_TUBES
+            ){
+
+                setTube(
+                    patternStep,
+                    false
+                );
+
+                patternStep++;
+
+            }
+            else{
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        case "G":
+
+            if(
+                patternStep <
+                NUM_TUBES
+            ){
+
+                setTube(
+                    patternStep,
+                    true
+                );
+
+                patternStep++;
+
+            }
+            else{
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        case "H":
+
+            if(
+                patternStep <
+                NUM_TUBES
+            ){
+
+                setTube(
+                    NUM_TUBES -
+                    1 -
+                    patternStep,
+                    true
+                );
+
+                patternStep++;
+
+            }
+            else{
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        case "I":
+
+            if(
+                patternStep === 0
+            ){
+
+                allOn();
+
+            }
+
+
+            if(
+                patternStep <
+                NUM_TUBES
+            ){
+
+                setTube(
+                    patternStep,
+                    false
+                );
+
+                patternStep++;
+
+            }
+            else{
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        case "J":
+
+            if(
+                patternStep === 0
+            ){
+
+                allOn();
+
+            }
+
+
+            if(
+                patternStep <
+                NUM_TUBES
+            ){
+
+                setTube(
+                    NUM_TUBES -
+                    1 -
+                    patternStep,
+                    false
+                );
+
+                patternStep++;
+
+            }
+            else{
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        case "Q":
+
+            if(
+                patternStep === 0
+            ){
+
+                allOff();
+
+            }
+
+
+            const left =
+                Math.floor(
+                    (NUM_TUBES - 1) / 2
+                ) -
+                patternStep;
+
+
+            const right =
+                Math.ceil(
+                    (NUM_TUBES - 1) / 2
+                ) +
+                patternStep;
+
+
+            if(left >= 0){
+
+                setTube(
+                    left,
+                    true
+                );
+
+            }
+
+
+            if(
+                right < NUM_TUBES
+            ){
+
+                setTube(
+                    right,
+                    true
+                );
+
+            }
+
+
+            patternStep++;
+
+
+            if(
+                left < 0 &&
+                right >= NUM_TUBES
+            ){
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        case "R":
+
+            if(
+                patternStep === 0
+            ){
+
+                allOn();
+
+            }
+
+
+            const rl =
+                Math.floor(
+                    (NUM_TUBES - 1) / 2
+                ) -
+                patternStep;
+
+
+            const rr =
+                Math.ceil(
+                    (NUM_TUBES - 1) / 2
+                ) +
+                patternStep;
+
+
+            if(rl >= 0){
+
+                setTube(
+                    rl,
+                    false
+                );
+
+            }
+
+
+            if(
+                rr < NUM_TUBES
+            ){
+
+                setTube(
+                    rr,
+                    false
+                );
+
+            }
+
+
+            patternStep++;
+
+
+            if(
+                rl < 0 &&
+                rr >= NUM_TUBES
+            ){
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        case "S":
+
+            if(
+                patternStep === 0
+            ){
+
+                allOn();
+
+            }
+
+
+            const sl =
+                Math.floor(
+                    (NUM_TUBES - 1) / 2
+                ) -
+                patternStep;
+
+
+            const sr =
+                Math.ceil(
+                    (NUM_TUBES - 1) / 2
+                ) +
+                patternStep;
+
+
+            if(sl >= 0){
+
+                setTube(
+                    sl,
+                    false
+                );
+
+            }
+
+
+            if(
+                sr < NUM_TUBES
+            ){
+
+                setTube(
+                    sr,
+                    false
+                );
+
+            }
+
+
+            patternStep++;
+
+
+            if(
+                sl < 0 &&
+                sr >= NUM_TUBES
+            ){
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        case "T":
+
+            if(
+                patternStep === 0
+            ){
+
+                allOn();
+
+            }
+
+
+            const tl =
+                patternStep;
+
+
+            const tr =
+                NUM_TUBES -
+                1 -
+                patternStep;
+
+
+            if(
+                tl < NUM_TUBES
+            ){
+
+                setTube(
+                    tl,
+                    false
+                );
+
+            }
+
+
+            if(
+                tr >= 0
+            ){
+
+                setTube(
+                    tr,
+                    false
+                );
+
+            }
+
+
+            patternStep++;
+
+
+            if(
+                tl >= NUM_TUBES &&
+                tr < 0
+            ){
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        case "U":
+
+            if(
+                patternStep <
+                NUM_TUBES
+            ){
+
+                const idx =
+                    Math.floor(
+                        random(NUM_TUBES)
+                    );
+
+
+                tubes[idx].on =
+                    !tubes[idx].on;
+
+
+                patternStep++;
+
+            }
+            else{
+
+                completeOnePattern();
+
+            }
+
+            break;
+
+
+        default:
+
+            completeOnePattern();
+
+            break;
+
+    }
+
+}
+
+
+/* =========================================================
+   パターン終了
+   ========================================================= */
+
+function completeOnePattern(){
+
+    patternRepeat++;
+
+
+    if(
+        patternRepeat <
+        patternRepeatTarget
+    ){
+
+        restartCurrentPattern();
+
+        return;
+
+    }
+
+
+    completeWholePattern();
+
+}
+
+
+function completeWholePattern(){
+
+    running = false;
+
+    movingBarActive = false;
+
+    blockActive = false;
+
+    stackActive = false;
+
+    overtakeActive = false;
+
+
+    if(
+        runMode === "single"
+    ){
+
+        updateStatus();
+
+        return;
+
+    }
+
+
+    if(
+        runMode === "auto"
+    ){
+
+        autoIndex++;
+
+
+        if(
+            autoIndex >=
+            autoSequence.length
+        ){
+
+            autoIndex = 0;
+
+        }
+
+
+        startAutoPattern();
+
+        return;
+
+    }
+
+
+    if(
+        runMode === "seq"
+    ){
+
+        sequenceCommandIndex++;
+
+
+        if(
+            sequenceCommandIndex >=
+            sequenceCommands.length
+        ){
+
+            sequenceCommandIndex = 0;
+
+        }
+
+
+        startNextSequenceCommand();
+
+        return;
+
+    }
+
+}
+
+
+/* =========================================================
+   再スタート
+   ========================================================= */
+
+function restartCurrentPattern(){
+
+    patternStep = 0;
+
+    lastStepTime =
+        millis();
+
+    initializeSpecialPattern(
+        currentPattern
+    );
+
+    running = true;
+
+}
+
+
+/* =========================================================
+   E/F
+   ========================================================= */
+
+function startSingleRunner(direction){
+
+    allOff();
+
+    movingDirection =
+        direction;
+
+    movingBarActive = true;
+
+
+    if(
+        direction === 1
+    ){
+
+        movingBarX =
+            tubes[0].x;
+
+    }
+    else{
+
+        movingBarX =
+            tubes[
+                NUM_TUBES - 1
+            ].x;
+
+    }
+
+
+    movingBarColor =
+        getMovingColor(
+            movingBarX
+        );
+
+}
+
+
+function updateSingleRunner(){
+
+    if(
+        !movingBarActive
+    ){
+
+        return;
+
+    }
+
+
+    const speed =
+        getMoveSpeed();
+
+
+    addAfterImage(
+        movingBarX,
+        movingBarColor
+    );
+
+
+    movingBarX +=
+        movingDirection *
+        speed;
+
+
+    movingBarColor =
+        getMovingColor(
+            movingBarX
+        );
+
+
+    if(
+        movingDirection === 1 &&
+        movingBarX >=
+        tubes[
+            NUM_TUBES - 1
+        ].x
+    ){
+
+        movingBarX =
+            tubes[
+                NUM_TUBES - 1
+            ].x;
+
+
+        movingBarActive =
+            false;
+
+
+        completeOnePattern();
+
+        return;
+
+    }
+
+
+    if(
+        movingDirection === -1 &&
+        movingBarX <=
+        tubes[0].x
+    ){
+
+        movingBarX =
+            tubes[0].x;
+
+
+        movingBarActive =
+            false;
+
+
+        completeOnePattern();
+
+        return;
+
+    }
+
+}
+
+
+/* =========================================================
+   K/L
+   ========================================================= */
+
+function startBlockRunner(direction){
+
+    allOff();
+
+    movingDirection =
+        direction;
+
+    blockActive = true;
+
+    blockPositions = [];
+
+
+    const spacing =
+        getTubeSpacing();
+
+
+    let startX;
+
+
+    if(
+        direction === 1
+    ){
+
+        startX =
+            tubes[0].x;
+
+    }
+    else{
+
+        startX =
+            tubes[
+                NUM_TUBES - 1
+            ].x;
+
+    }
+
+
+    for(
+        let i = 0;
+        i < 3;
+        i++
+    ){
+
+        blockPositions.push(
+            startX +
+            movingDirection *
+            spacing *
+            i
+        );
+
+    }
+
+}
+
+
+function updateBlockRunner(){
+
+    if(
+        !blockActive
+    ){
+
+        return;
+
+    }
+
+
+    const speed =
+        getMoveSpeed();
+
+
+    for(
+        let i = 0;
+        i < blockPositions.length;
+        i++
+    ){
+
+        addAfterImage(
+            blockPositions[i],
+            getMovingColor(
+                blockPositions[i]
+            )
+        );
+
+
+        blockPositions[i] +=
+            movingDirection *
+            speed;
+
+    }
+
+
+    const right =
+        tubes[
+            NUM_TUBES - 1
+        ].x;
+
+
+    const left =
+        tubes[0].x;
+
+
+    if(
+        movingDirection === 1 &&
+        blockPositions[0] > right
+    ){
+
+        blockActive =
+            false;
+
+
+        completeOnePattern();
+
+        return;
+
+    }
+
+
+    if(
+        movingDirection === -1 &&
+        blockPositions[2] < left
+    ){
+
+        blockActive =
+            false;
+
+
+        completeOnePattern();
+
+        return;
+
+    }
+
+}
+
+
+/* =========================================================
+   M/N
+   ========================================================= */
+
+function startStack(direction){
+
+    allOff();
+
+    stackDirection =
+        direction;
+
+    stackActive = true;
+
+    stackFixedCount = 0;
+
+
+    if(
+        direction === 1
+    ){
+
+        stackRunnerX =
+            tubes[0].x;
+
+    }
+    else{
+
+        stackRunnerX =
+            tubes[
+                NUM_TUBES - 1
+            ].x;
+
+    }
+
+
+    stackColor =
+        getMovingColor(
+            stackRunnerX
+        );
+
+}
+
+
+function updateStack(){
+
+    if(
+        !stackActive
+    ){
+
+        return;
+
+    }
+
+
+    const speed =
+        getMoveSpeed();
+
+
+    stackRunnerX +=
+        stackDirection *
+        speed;
+
+
+    stackColor =
+        getMovingColor(
+            stackRunnerX
+        );
+
+
+    if(
+        stackDirection === 1 &&
+        stackRunnerX >=
+        tubes[
+            stackFixedCount
+        ].x
+    ){
+
+        const index =
+            stackFixedCount;
+
+
+        if(
+            index < NUM_TUBES
+        ){
+
+            tubes[index].on =
+                true;
+
+
+            tubes[index].color =
+                getTubeColor(index);
+
+
+            stackFixedCount++;
+
+
+            if(
+                stackFixedCount >=
+                NUM_TUBES
+            ){
+
+                stackActive =
+                    false;
+
+
+                completeOnePattern();
+
+                return;
+
+            }
+
+
+            stackRunnerX =
+                tubes[
+                    stackFixedCount
+                ].x;
+
+        }
+
+    }
+
+
+    if(
+        stackDirection === -1 &&
+        stackRunnerX <=
+        tubes[
+            NUM_TUBES -
+            1 -
+            stackFixedCount
+        ].x
+    ){
+
+        const index =
+            NUM_TUBES -
+            1 -
+            stackFixedCount;
+
+
+        if(
+            index >= 0
+        ){
+
+            tubes[index].on =
+                true;
+
+
+            tubes[index].color =
+                getTubeColor(index);
+
+
+            stackFixedCount++;
+
+
+            if(
+                stackFixedCount >=
+                NUM_TUBES
+            ){
+
+                stackActive =
+                    false;
+
+
+                completeOnePattern();
+
+                return;
+
+            }
+
+
+            stackRunnerX =
+                tubes[
+                    NUM_TUBES -
+                    1 -
+                    stackFixedCount
+                ].x;
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   O/P
+   ========================================================= */
+
+function initializeOvertake(direction){
+
+    allOff();
+
+    overtakeDirection =
+        direction;
+
+    overtakeActive =
+        true;
+
+    overtakeCount =
+        0;
+
+
+    if(
+        direction === 1
+    ){
+
+        overtakeGroupStart =
+            0;
+
+        overtakeGroupEnd =
+            0;
+
+
+        tubes[0].on =
+            true;
+
+
+        tubes[0].color =
+            getTubeColor(0);
+
+
+        overtakeRunnerX =
+            tubes[0].x;
+
+
+        overtakeTargetX =
+            tubes[1].x;
+
+    }
+    else{
+
+        overtakeGroupStart =
+            NUM_TUBES - 1;
+
+        overtakeGroupEnd =
+            NUM_TUBES - 1;
+
+
+        tubes[
+            NUM_TUBES - 1
+        ].on =
+            true;
+
+
+        tubes[
+            NUM_TUBES - 1
+        ].color =
+            getTubeColor(
+                NUM_TUBES - 1
+            );
+
+
+        overtakeRunnerX =
+            tubes[
+                NUM_TUBES - 1
+            ].x;
+
+
+        overtakeTargetX =
+            tubes[
+                NUM_TUBES - 2
+            ].x;
+
+    }
+
+}
+
+
+function updateOvertake(){
+
+    if(
+        !overtakeActive
+    ){
+
+        return;
+
+    }
+
+
+    const speed =
+        getMoveSpeed();
+
+
+    addAfterImage(
+        overtakeRunnerX,
+        getOvertakeRunnerColor()
+    );
+
+
+    if(
+        overtakeDirection === 1
+    ){
+
+        overtakeRunnerX +=
+            speed;
+
+
+        if(
+            overtakeRunnerX >=
+            overtakeTargetX
+        ){
+
+            overtakeRunnerX =
+                overtakeTargetX;
+
+
+            fixOvertakeRunner();
+
+        }
+
+    }
+    else{
+
+        overtakeRunnerX -=
+            speed;
+
+
+        if(
+            overtakeRunnerX <=
+            overtakeTargetX
+        ){
+
+            overtakeRunnerX =
+                overtakeTargetX;
+
+
+            fixOvertakeRunner();
+
+        }
+
+    }
+
+}
+
+
+function getOvertakeRunnerColor(){
+
+    let index;
+
+
+    if(
+        overtakeDirection === 1
+    ){
+
+        index =
+            Math.min(
+                overtakeGroupEnd + 1,
+                NUM_TUBES - 1
+            );
+
+    }
+    else{
+
+        index =
+            Math.max(
+                overtakeGroupStart - 1,
+                0
+            );
+
+    }
+
+
+    return getTubeColor(index);
+
+}
+
+
+function fixOvertakeRunner(){
+
+    let index;
+
+
+    if(
+        overtakeDirection === 1
+    ){
+
+        index =
+            overtakeGroupEnd + 1;
+
+    }
+    else{
+
+        index =
+            overtakeGroupStart - 1;
+
+    }
+
+
+    if(
+        index < 0 ||
+        index >= NUM_TUBES
+    ){
+
+        overtakeActive =
+            false;
+
+
+        completeOnePattern();
+
+        return;
+
+    }
+
+
+    tubes[index].on =
+        true;
+
+
+    tubes[index].color =
+        getTubeColor(index);
+
+
+    if(
+        overtakeDirection === 1
+    ){
+
+        overtakeGroupEnd =
+            index;
+
+
+        if(
+            overtakeGroupEnd <
+            NUM_TUBES - 1
+        ){
+
+            overtakeRunnerX =
+                tubes[
+                    overtakeGroupStart
+                ].x;
+
+
+            overtakeTargetX =
+                tubes[
+                    overtakeGroupEnd + 1
+                ].x;
+
+        }
+
+    }
+    else{
+
+        overtakeGroupStart =
+            index;
+
+
+        if(
+            overtakeGroupStart > 0
+        ){
+
+            overtakeRunnerX =
+                tubes[
+                    overtakeGroupEnd
+                ].x;
+
+
+            overtakeTargetX =
+                tubes[
+                    overtakeGroupStart - 1
+                ].x;
+
+        }
+
+    }
+
+
+    overtakeCount++;
+
+
+    if(
+        overtakeCount >=
+        NUM_TUBES - 1
+    ){
+
+        allOn();
+
+        overtakeActive =
+            false;
+
+
+        completeOnePattern();
+
+    }
+
+}
+
+
+/* =========================================================
+   特殊パターン初期化
+   ========================================================= */
+
+function initializeSpecialPattern(pattern){
+
+    movingBarActive =
+        false;
+
+    blockActive =
+        false;
+
+    stackActive =
+        false;
+
+    overtakeActive =
+        false;
+
+
+    switch(pattern){
+
+        case "E":
+
+            startSingleRunner(1);
+
+            break;
+
+
+        case "F":
+
+            startSingleRunner(-1);
+
+            break;
+
+
+        case "K":
+
+            startBlockRunner(1);
+
+            break;
+
+
+        case "L":
+
+            startBlockRunner(-1);
+
+            break;
+
+
+        case "M":
+
+            startStack(1);
+
+            break;
+
+
+        case "N":
+
+            startStack(-1);
+
+            break;
+
+
+        case "O":
+
+            initializeOvertake(1);
+
+            break;
+
+
+        case "P":
+
+            initializeOvertake(-1);
+
+            break;
+
+    }
+
+}
+
+
+/* =========================================================
+   パターン開始
+   ========================================================= */
+
+function startPattern(
+    pattern,
+    repeatCount = 1,
+    mode = "single"
+){
+
+    stopAnimationOnly();
+
+
+    runMode =
+        mode;
+
+
+    currentPattern =
+        pattern;
+
+
+    patternStep =
+        0;
+
+
+    patternRepeat =
+        0;
+
+
+    patternRepeatTarget =
+        Math.max(
+            1,
+            repeatCount
+        );
+
+
+    afterImages =
+        [];
+
+
+    lastStepTime =
+        millis();
+
+
+    initializeSpecialPattern(
+        pattern
+    );
+
+
+    running =
+        true;
+
+
+    updateStatus();
+
+}
+
+
+/* =========================================================
+   ボタン実行
+   ========================================================= */
+
+function runPattern(pattern){
+
+    startPattern(
+        pattern,
+        1,
+        "single"
+    );
+
+}
+
+
+/* =========================================================
+   自動演出
+   ========================================================= */
+
+function startAuto(){
+
+    stopAnimationOnly();
+
+    runMode =
+        "auto";
+
+    autoIndex =
+        0;
+
+    startAutoPattern();
+
+}
+
+
+function startAutoPattern(){
+
+    const p =
+        autoSequence[
+            autoIndex
+        ];
+
+
+    startPattern(
+        p,
+        1,
+        "auto"
+    );
+
+}
+
+
+/* =========================================================
+   停止
+   ========================================================= */
+
+function stopAnimationOnly(){
+
+    running =
+        false;
+
+    movingBarActive =
+        false;
+
+    blockActive =
+        false;
+
+    stackActive =
+        false;
+
+    overtakeActive =
+        false;
+
+}
+
+
+function stopAll(){
+
+    stopAnimationOnly();
+
+    runMode =
+        "single";
+
+    currentPattern =
+        "";
+
+    allOff();
+
+    afterImages =
+        [];
+
+
+    updateStatus();
+
+
+    setMessage(
+        "停止しました。"
+    );
+
+}
+
+
+/* =========================================================
+   シーケンサ
+   ========================================================= */
+
+function playSequence(){
+
+    const text =
+        document.getElementById(
+            "sequenceInput"
+        ).value.trim();
+
+
+    const result =
+        validateSequence(
+            text
+        );
+
+
+    if(
+        !result.ok
+    ){
+
+        setMessage(
+            result.message
+        );
+
+        return;
+
+    }
+
+
+    sequenceCommands =
+        result.commands;
+
+
+    sequenceCommandIndex =
+        0;
+
+
+    runMode =
+        "seq";
+
+
+    setMessage(
+        "シーケンサ開始："
+        +
+        sequenceCommands.length
+        +
+        "命令"
+    );
+
+
+    startNextSequenceCommand();
+
+}
+
+
+/* =========================================================
+   シーケンサ検証
+   ========================================================= */
+
+function validateSequence(text){
+
+    if(
+        text.length === 0
+    ){
+
+        return {
+
+            ok: false,
+
+            message:
+                "エラー：実行指示文字列が空です。"
+
+        };
+
+    }
+
+
+    const commands =
+        [];
+
+
+    let pos =
+        0;
+
+
+    while(
+        pos < text.length
+    ){
+
+        const commandChar =
+            text.charAt(pos);
+
+
+        if(
+            !/^[A-U_]$/.test(
+                commandChar
+            )
+        ){
+
+            return {
+
+                ok: false,
+
+                message:
+                    "エラー："
+                    +
+                    (pos + 1)
+                    +
+                    "文字目「"
+                    +
+                    commandChar
+                    +
+                    "」が不正です。"
+                    +
+                    " A～U または _ を指定してください。"
+
+            };
+
+        }
+
+
+        if(
+            pos + 2 >=
+            text.length
+        ){
+
+            return {
+
+                ok: false,
+
+                message:
+                    "エラー："
+                    +
+                    (pos + 1)
+                    +
+                    "文字目から3文字の命令になっていません。"
+                    +
+                    " 例：E03"
+
+            };
+
+        }
+
+
+        const digits =
+            text.substring(
+                pos + 1,
+                pos + 3
+            );
+
+
+        if(
+            !/^[0-9]{2}$/.test(
+                digits
+            )
+        ){
+
+            return {
+
+                ok: false,
+
+                message:
+                    "エラー："
+                    +
+                    (pos + 2)
+                    +
+                    "～"
+                    +
+                    (pos + 3)
+                    +
+                    "文字目は2桁の数字にしてください。"
+
+            };
+
+        }
+
+
+        const count =
+            parseInt(
+                digits,
+                10
+            );
+
+
+        if(
+            count === 0
+        ){
+
+            return {
+
+                ok: false,
+
+                message:
+                    "エラー："
+                    +
+                    (pos + 2)
+                    +
+                    "～"
+                    +
+                    (pos + 3)
+                    +
+                    "文字目が00です。"
+                    +
+                    " 01～99を指定してください。"
+
+            };
+
+        }
+
+
+        commands.push({
+
+            command:
+                commandChar,
+
+            count:
+                count
+
+        });
+
+
+        pos += 3;
+
+    }
+
+
+    return {
+
+        ok: true,
+
+        commands:
+            commands
+
+    };
+
+}
+
+
+/* =========================================================
+   次のシーケンス
+   ========================================================= */
+
+function startNextSequenceCommand(){
+
+    if(
+        sequenceCommands.length === 0
+    ){
+
+        stopAll();
+
+        return;
+
+    }
+
+
+    if(
+        sequenceCommandIndex >=
+        sequenceCommands.length
+    ){
+
+        sequenceCommandIndex =
+            0;
+
+    }
+
+
+    const cmd =
+        sequenceCommands[
+            sequenceCommandIndex
+        ];
+
+
+    if(
+        cmd.command === "_"
+    ){
+
+        currentPattern =
+            "_";
+
+
+        sequencePause =
+            true;
+
+
+        sequencePauseEnd =
+            millis()
+            +
+            delayTime *
+            cmd.count;
+
+
+        running =
+            true;
+
+
+        updateStatus();
+
+
+        return;
+
+    }
+
+
+    sequencePause =
+        false;
+
+
+    startPattern(
+        cmd.command,
+        cmd.count,
+        "seq"
+    );
+
+}
+
+
+/* =========================================================
+   一時停止
+   ========================================================= */
+
+function updatePause(){
+
+    if(
+        !sequencePause
+    ){
+
+        return;
+
+    }
+
+
+    if(
+        millis() >=
+        sequencePauseEnd
+    ){
+
+        sequencePause =
+            false;
+
+
+        sequenceCommandIndex++;
+
+
+        if(
+            sequenceCommandIndex >=
+            sequenceCommands.length
+        ){
+
+            sequenceCommandIndex =
+                0;
+
+        }
+
+
+        startNextSequenceCommand();
+
+    }
+
+}
+
+
+/* =========================================================
+   Delay
+   ========================================================= */
+
+function updateDelayLabel(){
+
+    delayTime =
+        parseInt(
+            document.getElementById(
+                "delaySlider"
+            ).value,
+            10
+        );
+
+
+    document.getElementById(
+        "delayLabel"
+    ).textContent =
+        delayTime +
+        " ms";
+
+}
+
+
+/* =========================================================
+   色変更
+   ========================================================= */
+
+function changeColor(){
+
+    selectedColor =
+        document.getElementById(
+            "colorSelect"
+        ).value;
+
+
+    for(
+        let i = 0;
+        i < NUM_TUBES;
+        i++
+    ){
+
+        tubes[i].color =
+            getTubeColor(i);
+
+    }
+
+
+    if(
+        movingBarActive
+    ){
+
+        movingBarColor =
+            getMovingColor(
+                movingBarX
+            );
+
+    }
+
+
+    if(
+        stackActive
+    ){
+
+        stackColor =
+            getMovingColor(
+                stackRunnerX
+            );
+
+    }
+
+}
+
+
+/* =========================================================
+   色
+   ========================================================= */
+
+function getTubeColor(index){
+
+    if(
+        selectedColor ===
+        "rainbow"
+    ){
+
+        return getRainbowColor(
+            index
+        );
+
+    }
+
+
+    const colors = {
+
+        red:
+            color(
+                255,
+                30,
+                40
+            ),
+
+        orange:
+            color(
+                255,
+                100,
+                20
+            ),
+
+        yellow:
+            color(
+                255,
+                230,
+                30
+            ),
+
+        green:
+            color(
+                30,
+                255,
+                80
+            ),
+
+        cyan:
+            color(
+                20,
+                240,
+                255
+            ),
+
+        blue:
+            color(
+                40,
+                100,
+                255
+            ),
+
+        purple:
+            color(
+                170,
+                60,
+                255
+            ),
+
+        pink:
+            color(
+                255,
+                50,
+                180
+            )
+
+    };
+
+
+    return colors[
+        selectedColor
+    ] ||
+    color(255);
+
+}
+
+
+function getRainbowColor(index){
+
+    colorMode(
+        HSB,
+        360,
+        100,
+        100,
+        255
+    );
+
+
+    const hueValue =
+        (
+            index *
+            360 /
+            NUM_TUBES
+        )
+        %
+        360;
+
+
+    const c =
+        color(
+            hueValue,
+            90,
+            100,
+            255
+        );
+
+
+    colorMode(RGB);
+
+
+    return c;
+
+}
+
+
+/* =========================================================
+   移動色
+   ========================================================= */
+
+function getMovingColor(x){
+
+    if(
+        selectedColor ===
+        "rainbow"
+    ){
+
+        const left =
+            tubes[0].x;
+
+
+        const right =
+            tubes[
+                NUM_TUBES - 1
+            ].x;
+
+
+        let p =
+            map(
+                x,
+                left,
+                right,
+                0,
+                NUM_TUBES - 1
+            );
+
+
+        p =
+            constrain(
+                p,
+                0,
+                NUM_TUBES - 1
+            );
+
+
+        return getRainbowColor(
+            p
+        );
+
+    }
+
+
+    return getTubeColor(0);
+
+}
+
+
+function getRainbowOrNormalColor(i){
+
+    if(
+        selectedColor ===
+        "rainbow"
+    ){
+
+        return getMovingColor(
+            blockPositions[i]
+        );
+
+    }
+
+
+    return getTubeColor(i);
+
+}
+
+
+/* =========================================================
+   Tube操作
+   ========================================================= */
+
+function setTube(
+    index,
+    state
+){
+
+    if(
+        index < 0 ||
+        index >= NUM_TUBES
+    ){
+
+        return;
+
+    }
+
+
+    tubes[index].on =
+        state;
+
+
+    if(state){
+
+        tubes[index].color =
+            getTubeColor(index);
+
+    }
+
+}
+
+
+function allOn(){
+
+    for(
+        let i = 0;
+        i < NUM_TUBES;
+        i++
+    ){
+
+        tubes[i].on =
+            true;
+
+
+        tubes[i].color =
+            getTubeColor(i);
+
+    }
+
+}
+
+
+function allOff(){
+
+    for(
+        let i = 0;
+        i < NUM_TUBES;
+        i++
+    ){
+
+        tubes[i].on =
+            false;
+
+    }
+
+}
+
+
+/* =========================================================
+   移動速度
+   ========================================================= */
+
+function getTubeSpacing(){
+
+    if(
+        tubes.length < 2
+    ){
+
+        return 20;
+
+    }
+
+
+    return (
+        tubes[1].x -
+        tubes[0].x
+    );
+
+}
+
+
+function getMoveSpeed(){
+
+    const spacing =
+        getTubeSpacing();
+
+
+    return map(
+        delayTime,
+        50,
+        1000,
+        spacing * 0.75,
+        spacing * 0.12
+    );
+
+}
+
+
+/* =========================================================
+   ステータス
+   ========================================================= */
+
+function updateStatus(){
+
+    const status =
+        document.getElementById(
+            "status"
+        );
+
+
+    if(
+        !running
+    ){
+
+        status.textContent =
+            "Ready";
+
+        return;
+
+    }
+
+
+    if(
+        runMode ===
+        "auto"
+    ){
+
+        status.textContent =
+            "Running : 自動演出 / "
+            +
+            currentPattern;
+
+        return;
+
+    }
+
+
+    if(
+        runMode ===
+        "seq"
+    ){
+
+        if(
+            currentPattern === "_"
+        ){
+
+            status.textContent =
+                "Running : シーケンサ / 一時停止";
+
+        }
+        else{
+
+            status.textContent =
+                "Running : シーケンサ / "
+                +
+                currentPattern
+                +
+                " "
+                +
+                patternRepeat
+                +
+                "/"
+                +
+                patternRepeatTarget;
+
+        }
+
+        return;
+
+    }
+
+
+    status.textContent =
+        "Running : "
+        +
+        currentPattern;
+
+}
+
+
+/* =========================================================
+   メッセージ
+   ========================================================= */
+
+function setMessage(text){
+
+    document.getElementById(
+        "message"
+    ).textContent =
+        text;
+
+}
+
+
+/* =========================================================
+   Help
+   ========================================================= */
+
+function showHelp(){
+
+    document.getElementById(
+        "helpWindow"
+    ).style.display =
+        "block";
+
+}
+
+
+function hideHelp(){
+
+    document.getElementById(
+        "helpWindow"
+    ).style.display =
+        "none";
+
+}
+
+
+/* =========================================================
+   キーボード ESC でHelpを閉じる
+   ========================================================= */
+
+document.addEventListener(
+    "keydown",
+    function(event){
+
+        if(
+            event.key ===
+            "Escape"
+        ){
+
+            hideHelp();
+
+        }
+
+    }
+);
+
+
+/* =========================================================
+   ウインドウサイズ変更
+   ========================================================= */
+
+function windowResized(){
+
+    resizeCanvas(
+        windowWidth,
+        Math.max(
+            450,
+            windowHeight - 230
+        )
+    );
+
+
+    initializeTubes();
+
+}
+
+
+/* =========================================================
+   初期値
+   ========================================================= */
+
+updateDelayLabel();
+
+</script>
+
+</body>
+
+</html>
