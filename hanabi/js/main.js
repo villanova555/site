@@ -1,3 +1,8 @@
+import { Rocket } from './effects/rocket.js';
+import { Bloom } from './effects/bloom.js';
+import { StarRain } from './effects/starRain.js';
+import { SoundManager, customConfig, setDistance, setMasterVol, getDistance, getMasterVol } from './engine.js';
+
 let fireworks = [];
 let particles = [];
 let ambientStars = [];
@@ -10,6 +15,8 @@ function setup() {
     for (let i = 0; i < 5; i++) {
         ambientStars.push(new StarRain());
     }
+
+    initEventListeners();
 }
 
 function draw() {
@@ -63,41 +70,84 @@ function windowResized() {
 }
 
 function launchFirework(type) {
-    fireworks.push(new Rocket(type));
+    fireworks.push(new Rocket(type, particles));
 }
 
-function toggleSound() {
-    soundEnabled = !soundEnabled;
-    let btn = document.getElementById('sound-btn');
-    btn.innerText = soundEnabled ? "効果音: ON" : "効果音: OFF";
-    btn.classList.toggle('active', soundEnabled);
-}
+function initEventListeners() {
+    const btn1 = document.getElementById('btn-fire-1');
+    const btn2 = document.getElementById('btn-fire-2');
+    const btn3 = document.getElementById('btn-fire-3');
+    const btn4 = document.getElementById('btn-fire-4');
+    const btn5 = document.getElementById('btn-fire-5');
+    const btn6 = document.getElementById('btn-fire-6');
+    const btn7 = document.getElementById('btn-fire-7');
+    const soundBtn = document.getElementById('sound-btn');
+    const settingsBtn = document.getElementById('settings-btn');
+    const helpBtn = document.getElementById('help-btn');
+    const microbitBtn = document.getElementById('microbit-btn');
+    const saveSettingsBtn = document.getElementById('save-settings-btn');
+    const closeSettingsBtn = document.getElementById('close-settings-btn');
+    const closeHelpBtn = document.getElementById('close-help-btn');
 
-function openSettings() {
-    document.getElementById('settings-modal').style.display = 'block';
-}
+    if (btn1) btn1.addEventListener('click', () => launchFirework(1));
+    if (btn2) btn2.addEventListener('click', () => launchFirework(2));
+    if (btn3) btn3.addEventListener('click', () => launchFirework(3));
+    if (btn4) btn4.addEventListener('click', () => launchFirework(4));
+    if (btn5) btn5.addEventListener('click', () => launchFirework(5));
+    if (btn6) btn6.addEventListener('click', () => launchFirework(6));
+    if (btn7) btn7.addEventListener('click', () => launchFirework(7));
 
-function closeSettings() {
-    document.getElementById('settings-modal').style.display = 'none';
-}
+    if (soundBtn) {
+        soundBtn.addEventListener('click', () => {
+            let enabled = SoundManager.toggleSound();
+            soundBtn.innerText = enabled ? "効果音: ON" : "効果音: OFF";
+            soundBtn.classList.toggle('active', enabled);
+        });
+    }
 
-function updateSettings() {
-    distance = document.getElementById('set-distance').value;
-    masterVol = document.getElementById('set-volume').value;
-}
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', () => {
+            document.getElementById('settings-modal').style.display = 'block';
+        });
+    }
 
-function saveSettings() {
-    customConfig.count = parseInt(document.getElementById('set-custom-count').value);
-    customConfig.trail = parseFloat(document.getElementById('set-custom-trail').value);
-    closeSettings();
-}
+    if (closeSettingsBtn) {
+        closeSettingsBtn.addEventListener('click', () => {
+            document.getElementById('settings-modal').style.display = 'none';
+        });
+    }
 
-function openHELP() {
-    document.getElementById('help-modal').style.display = 'block';
-}
+    if (saveSettingsBtn) {
+        saveSettingsBtn.addEventListener('click', () => {
+            let distInput = document.getElementById('set-distance');
+            let volInput = document.getElementById('set-volume');
+            let countInput = document.getElementById('set-custom-count');
+            let trailInput = document.getElementById('set-custom-trail');
 
-function closeHELP() {
-    document.getElementById('help-modal').style.display = 'none';
+            if (distInput) setDistance(parseFloat(distInput.value));
+            if (volInput) setMasterVol(parseFloat(volInput.value));
+            if (countInput) customConfig.count = parseInt(countInput.value);
+            if (trailInput) customConfig.trail = parseFloat(trailInput.value);
+
+            document.getElementById('settings-modal').style.display = 'none';
+        });
+    }
+
+    if (helpBtn) {
+        helpBtn.addEventListener('click', () => {
+            document.getElementById('help-modal').style.display = 'block';
+        });
+    }
+
+    if (closeHelpBtn) {
+        closeHelpBtn.addEventListener('click', () => {
+            document.getElementById('help-modal').style.display = 'none';
+        });
+    }
+
+    if (microbitBtn) {
+        microbitBtn.addEventListener('click', connectMicrobit);
+    }
 }
 
 async function connectMicrobit() {
@@ -131,3 +181,9 @@ async function connectMicrobit() {
         console.log("接続がキャンセルされたか、エラーが発生しました。", error);
     }
 }
+
+window.setup = setup;
+window.draw = draw;
+window.windowResized = windowResized;
+
+```
