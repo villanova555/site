@@ -1,73 +1,68 @@
-<!-- =====================================================
- Fireworks Simulator Ver2.0.0
- 長岡花火風シミュレータ（プロトタイプ）
- ===================================================== -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-
-<title>Fireworks Simulator Ver2.0α</title>
-
-<link rel="stylesheet" href="style.css">
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
+    <meta charset="UTF-8">
+    <title>花火シミュレータ 2026</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- p5.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
 </head>
-
 <body>
 
-<div id="ui">
+    <div id="canvas-container"></div>
 
-  <div class="panel">
-
-    <h2>🎆 Fireworks Simulator Ver2.0α</h2>
-
-    <div class="row">
-      <button id="btnRocket">風揺れロケット</button>
-      <button id="btnBloom">開花二段</button>
-      <button id="btnStarRain">星雨連鎖</button>
+    <div id="ui-container">
+        <button id="btnRocket">風揺れロケット</button>
+        <button id="btnBloom">開花二段</button>
+        <button id="btnStarRain">星雨連鎖</button>
+        <button id="sound-btn" class="active">効果音: ON</button>
+        <button id="settings-btn">設定</button>
+        <button id="help-btn">HELP</button>
+        <button id="microbit-btn">micro:bit</button>
     </div>
 
-    <div class="row">
-      <button id="btnAuto">自動演出</button>
-      <button id="btnClear">クリア</button>
+    <!-- 設定モーダル -->
+    <div id="settings-modal">
+        <div class="modal-header">
+            <span>演出設定</span>
+            <button id="close-settings-btn" style="padding:2px 6px;">×</button>
+        </div>
+        <div class="setting-row">
+            <label>距離 (音響遅延 0-1km):</label>
+            <input type="range" id="set-distance" min="0" max="1000" value="300">
+        </div>
+        <div class="setting-row">
+            <label>全体音量:</label>
+            <input type="range" id="set-volume" min="0" max="1" step="0.1" value="0.5">
+        </div>
+        <div class="setting-row">
+            <label>カスタム花火 粒子数:</label>
+            <input type="number" id="set-custom-count" value="120" min="20" max="500">
+        </div>
+        <div class="setting-row">
+            <label>カスタム花火 尾の減衰:</label>
+            <input type="range" id="set-custom-trail" min="0.80" max="0.99" step="0.01" value="0.94">
+        </div>
+        <div style="text-align: right; margin-top: 15px;">
+            <button id="save-settings-btn">設定を保存</button>
+        </div>
     </div>
 
-    <div class="sliderBox">
-
-      <label>風の強さ</label>
-      <input type="range"
-             id="windSlider"
-             min="0"
-             max="100"
-             value="35">
-
-      <label>残像</label>
-      <input type="range"
-             id="trailSlider"
-             min="10"
-             max="80"
-             value="40">
-
-      <label>重力</label>
-      <input type="range"
-             id="gravitySlider"
-             min="10"
-             max="200"
-             value="100">
-
+    <!-- HELPモーダル -->
+    <div id="help-modal">
+        <div class="modal-header">
+            <span>操作案内</span>
+            <button id="close-help-btn" style="padding:2px 6px;">×</button>
+        </div>
+        <p style="font-size: 13px; line-height: 1.6;">
+            画面下部のボタンを押すと、それぞれの特殊効果を持った花火や星雨が夜空に展開されます。<br>
+            設定ボタンから距離や音量、詳細パラメータを変更できます。<br>
+            micro:bitボタンで外部デバイスとの連携が可能です。
+        </p>
     </div>
 
-    <div id="status">
-      準備完了
-    </div>
-
-  </div>
-
-</div>
-
-<script type="module" src="js/main.js"></script>
+    <!-- メインスクリプト（ESモジュール） -->
+    <script type="module" src="js/main.js"></script>
 
 </body>
 </html>
