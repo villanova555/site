@@ -1,0 +1,12 @@
+Ver2.0α ファイル構成（最小版）
+FireworksSimulator/
+│
+├── index.html
+├── style.css
+└── js/
+    ├── main.js
+    ├── engine.js
+    └── effects/
+         ├── rocket.js
+         ├── bloom.js
+         └── starRain.js

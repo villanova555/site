@@ -1,0 +1,73 @@
+<!-- =====================================================
+ Fireworks Simulator Ver2.0.0
+ 長岡花火風シミュレータ（プロトタイプ）
+ ===================================================== -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<title>Fireworks Simulator Ver2.0α</title>
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
+</head>
+
+<body>
+
+<div id="ui">
+
+  <div class="panel">
+
+    <h2>🎆 Fireworks Simulator Ver2.0α</h2>
+
+    <div class="row">
+      <button id="btnRocket">風揺れロケット</button>
+      <button id="btnBloom">開花二段</button>
+      <button id="btnStarRain">星雨連鎖</button>
+    </div>
+
+    <div class="row">
+      <button id="btnAuto">自動演出</button>
+      <button id="btnClear">クリア</button>
+    </div>
+
+    <div class="sliderBox">
+
+      <label>風の強さ</label>
+      <input type="range"
+             id="windSlider"
+             min="0"
+             max="100"
+             value="35">
+
+      <label>残像</label>
+      <input type="range"
+             id="trailSlider"
+             min="10"
+             max="80"
+             value="40">
+
+      <label>重力</label>
+      <input type="range"
+             id="gravitySlider"
+             min="10"
+             max="200"
+             value="100">
+
+    </div>
+
+    <div id="status">
+      準備完了
+    </div>
+
+  </div>
+
+</div>
+
+<script type="module" src="js/main.js"></script>
+
+</body>
+</html>
