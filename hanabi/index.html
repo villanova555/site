@@ -3,6 +3,427 @@
 <head>
     <meta charset="UTF-8">
     <title>花火シミュレータ 2026</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050b14;
+            font-family: sans-serif;
+            color: #fff;
+            user-select: none;
+        }
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: calc(100vh - 70px);
+        }
+        #ui-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100vw;
+            height: 70px;
+            background: rgba(10, 15, 25, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-sizing: border-box;
+            padding: 0 10px;
+            z-index: 10;
+        }
+        button {
+            background: #223344;
+            color: #fff;
+            border: 1px solid #446688;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #335577;
+        }
+        button.active {
+            background: #0066cc;
+            border-color: #3399ff;
+        }
+        #settings-modal, #help-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 30, 45, 0.95);
+            border: 1px solid #557799;
+            padding: 20px;
+            border-radius: 8px;
+            z-index: 100;
+            width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #446688;
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .setting-row {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .setting-row label {
+            font-size: 13px;
+        }
+        .setting-row input, .setting-row select {
+            background: #111d2e;
+            color: #fff;
+            border: 1px solid #334455;
+            padding: 4px;
+        }
+    </style>
+    <!-- p5.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-container">
+        <button id="btnRocket">風揺れロケット</button>
+        <button id="btnBloom">開花二段</button>
+        <button id="btnStarRain">星雨連鎖</button>
+        <button id="sound-btn" class="active" onclick="toggleSound()">効果音: ON</button>
+        <button id="settings-btn" onclick="openSettings()">設定</button>
+        <button id="help-btn" onclick="openHelp()">HELP</button>
+        <button id="microbit-btn" onclick="connectMicrobit()">micro:bit</button>
+    </div>
+
+    <!-- 設定モーダル -->
+    <div id="settings-modal">
+        <div class="modal-header">
+            <span>演出設定</span>
+            <button onclick="closeSettings()" style="padding:2px 6px;">×</button>
+        </div>
+        <div class="setting-row">
+            <label>距離 (音響遅延 0-1km):</label>
+            <input type="range" id="set-distance" min="0" max="1000" value="300" oninput="updateSettings()">
+        </div>
+        <div class="setting-row">
+            <label>全体音量:</label>
+            <input type="range" id="set-volume" min="0" max="1" step="0.1" value="0.5" oninput="updateSettings()">
+        </div>
+        <div style="text-align: right; margin-top: 15px;">
+            <button onclick="closeSettings()">閉じる</button>
+        </div>
+    </div>
+
+    <!-- HELPモーダル -->
+    <div id="help-modal">
+        <div class="modal-header">
+            <span>操作案内</span>
+            <button onclick="closeHelp()" style="padding:2px 6px;">×</button>
+        </div>
+        <p style="font-size: 13px; line-height: 1.6;">
+            ボタンを押すとそれぞれの特殊効果を持った演出が夜空に展開されます。<br>
+            設定から音量や遅延を調整可能です。
+        </p>
+    </div>
+
+<script>
+let fireworks = [];
+let particles = [];
+let soundEnabled = true;
+let audioCtx = null;
+let distance = 300;
+let masterVol = 0.5;
+
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+class SoundManager {
+    static playPon() {
+        if (!soundEnabled) return;
+        initAudio();
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
+        gain.gain.setValueAtTime(masterVol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+    }
+
+    static playHyu() {
+        if (!soundEnabled) return;
+        initAudio();
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 1.2);
+        gain.gain.setValueAtTime(masterVol * 0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.2);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 1.2);
+    }
+
+    static playDon() {
+        if (!soundEnabled) return;
+        setTimeout(() => {
+            initAudio();
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(80, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(20, audioCtx.currentTime + 0.8);
+            gain.gain.setValueAtTime(masterVol * 1.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.8);
+        }, (distance / 340) * 1000);
+    }
+}
+
+// 1. 風揺れロケット
+class RocketEffect {
+    constructor() {
+        this.x = random(width * 0.2, width * 0.8);
+        this.y = height;
+        this.targetY = random(height * 0.2, height * 0.4);
+        this.velY = -random(10, 14);
+        this.hu = random(360);
+        this.completed = false;
+        SoundManager.playPon();
+        SoundManager.playHyu();
+    }
+    update() {
+        this.x += sin(frameCount * 0.2) * 1.5; // 風揺れ
+        this.y += this.velY;
+        this.velY += 0.2;
+        if (this.y <= this.targetY || this.velY >= 0) {
+            this.explode();
+            this.completed = true;
+        }
+    }
+    show() {
+        if (!this.completed) {
+            stroke(this.hu, 50, 100);
+            strokeWeight(4);
+            point(this.x, this.y);
+        }
+    }
+    explode() {
+        SoundManager.playDon();
+        for (let i = 0; i < 100; i++) {
+            particles.push(new BloomEffect(this.x, this.y, this.hu, 1));
+        }
+    }
+}
+
+// 2. 開花二段
+class BloomEffect {
+    constructor(x, y, hu, stage = 1) {
+        this.x = x;
+        this.y = y;
+        this.hu = hu;
+        this.stage = stage;
+        let angle = random(TWO_PI);
+        let speed = random(2, stage === 1 ? 8 : 4);
+        this.vel = p5.Vector.fromAngle(angle).mult(speed);
+        this.acc = createVector(0, 0.1);
+        this.lifespan = 255;
+        this.decay = random(2, 4);
+    }
+    update() {
+        this.vel.add(this.acc);
+        this.x += this.vel.x;
+        this.y += this.vel.y;
+        this.lifespan -= this.decay;
+
+        // 二段目の開花トリガー
+        if (this.stage === 1 && this.lifespan < 150 && random() < 0.02) {
+            for (let i = 0; i < 5; i++) {
+                particles.push(new BloomEffect(this.x, this.y, (this.hu + 60) % 360, 2));
+            }
+            this.lifespan = 0;
+        }
+    }
+    show() {
+        noStroke();
+        fill(this.hu, 80, 100, this.lifespan / 255);
+        ellipse(this.x, this.y, this.stage === 1 ? 4 : 2, this.stage === 1 ? 4 : 2);
+    }
+    completed() {
+        return this.lifespan < 0;
+    }
+}
+
+// 3. 星雨連鎖
+class StarRainEffect {
+    constructor() {
+        this.x = random(width);
+        this.y = random(height * 0.4);
+        this.vy = random(2, 5);
+        this.alpha = 255;
+    }
+    update() {
+        this.y += this.vy;
+        this.alpha -= 3;
+    }
+    show() {
+        stroke(60, 30, 100, this.alpha / 255);
+        strokeWeight(2);
+        point(this.x, this.y);
+    }
+    completed() {
+        return this.alpha < 0;
+    }
+}
+
+function setup() {
+    let canvas = createCanvas(windowWidth, windowHeight - 70);
+    canvas.parent('canvas-container');
+    colorMode(HSB, 360, 100, 100, 1);
+
+    // ボタンのイベント紐付け
+    document.getElementById('btnRocket').addEventListener('click', () => {
+        fireworks.push(new RocketEffect());
+    });
+    document.getElementById('btnBloom').addEventListener('click', () => {
+        let rx = random(width * 0.3, width * 0.7);
+        let ry = random(height * 0.2, height * 0.4);
+        SoundManager.playDon();
+        for (let i = 0; i < 120; i++) {
+            particles.push(new BloomEffect(rx, ry, random(360), 1));
+        }
+    });
+    document.getElementById('btnStarRain').addEventListener('click', () => {
+        SoundManager.playPon();
+        for (let i = 0; i < 50; i++) {
+            particles.push(new StarRainEffect());
+        }
+    });
+}
+
+function draw() {
+    background(220, 80, 12);
+
+    // 山並み描画
+    noStroke();
+    fill(215, 60, 20);
+    beginShape();
+    vertex(0, height);
+    for (let x = 0; x <= width; x += 50) {
+        let y = height - 100 + sin(x * 0.003 + 1) * 30 + cos(x * 0.008) * 15;
+        vertex(x, y);
+    }
+    vertex(width, height);
+    endShape(CLOSE);
+
+    for (let i = fireworks.length - 1; i >= 0; i--) {
+        fireworks[i].update();
+        fireworks[i].show();
+        if (fireworks[i].completed) {
+            fireworks.splice(i, 1);
+        }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].show();
+        if (particles[i].completed()) {
+            particles.splice(i, 1);
+        }
+    }
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight - 70);
+}
+
+function toggleSound() {
+    soundEnabled = !soundEnabled;
+    let btn = document.getElementById('sound-btn');
+    btn.innerText = soundEnabled ? "効果音: ON" : "効果音: OFF";
+    btn.classList.toggle('active', soundEnabled);
+}
+
+function openSettings() {
+    document.getElementById('settings-modal').style.display = 'block';
+}
+
+function closeSettings() {
+    document.getElementById('settings-modal').style.display = 'none';
+}
+
+function updateSettings() {
+    distance = document.getElementById('set-distance').value;
+    masterVol = document.getElementById('set-volume').value;
+}
+
+function openHelp() {
+    document.getElementById('help-modal').style.display = 'block';
+}
+
+function closeHelp() {
+    document.getElementById('help-modal').style.display = 'none';
+}
+
+async function connectMicrobit() {
+    if (!("serial" in navigator)) {
+        alert("お使いのブラウザはWeb Serial APIに対応していません。");
+        return;
+    }
+    try {
+        const port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+        alert("micro:bitと接続しました。");
+        
+        while (port.readable) {
+            const reader = port.readable.getReader();
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    let text = new TextDecoder().decode(value);
+                    if (text.includes("A")) fireworks.push(new RocketEffect());
+                }
+            } catch (error) {
+                console.error(error);
+            } finally {
+                reader.releaseLock();
+            }
+        }
+    } catch (error) {
+        console.log("接続キャンセルまたはエラー", error);
+    }
+}
+</script>
+
+</body>
+</html><!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>花火シミュレータ 2026</title>
     <link rel="stylesheet" href="style.css">
     <!-- p5.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
