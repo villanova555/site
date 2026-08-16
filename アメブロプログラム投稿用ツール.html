@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Ameblo投稿サポート Ver3.20</title>
+
+<style>
+/* ==================================================
+   Ameblo投稿サポート Ver3.20
+   ==================================================
+   ・画面装飾は最低限
+   ・HTMLBoxは自由に編集可能
+   ================================================== */
+
+body {
+    margin: 16px;
+    font-family: sans-serif;
+    background: #f5f5f5;
+}
+
+/* ------------------------------------------
+   ボタンと応答メッセージを横並びにする
+   ------------------------------------------ */
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+/* ------------------------------------------
+   ボタン共通
+   ------------------------------------------ */
+.buttonFace {
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+/* ------------------------------------------
+   応答メッセージ欄
+   ------------------------------------------ */
+#StatusBox {
+    min-width: 240px;
+    padding: 7px 10px;
+    border: 1px solid #aaa;
+    background: white;
+}
+
+/* ------------------------------------------
+   HTML編集エリア
+   ------------------------------------------ */
+#HTMLBox {
+    width: 100%;
+    height: 75vh;
+    box-sizing: border-box;
+
+    padding: 10px;
+
+    font-family: Consolas, monospace;
+    font-size: 14px;
+
+    resize: vertical;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Ameblo投稿サポート Ver3.20</h2>
+
+<!-- ==================================================
+     ボタン群
+     ================================================== -->
+<div class="toolbar">
+
+    <!-- クリップボードからHTMLBoxへ読み込む -->
+    <button
+        class="buttonFace"
+        id="btnLoad">
+        読み込み
+    </button>
+
+    <!-- アメブロ禁止タグをトグル変換 -->
+    <button
+        class="buttonFace"
+        id="btnToggle">
+        禁止タグ変換
+    </button>
+
+    <!-- プログラム掲載用の黒背景コード枠を作成 -->
+    <button
+        class="buttonFace"
+        id="btnCodeBox">
+        コード枠化＋クリップ転送
+    </button>
+
+    <!-- 1回だけUndo -->
+    <button
+        class="buttonFace"
+        id="btnUndo">
+        Undo
+    </button>
+
+    <!-- プログラムからの応答メッセージ -->
+    <div id="StatusBox">
+        待機中
+    </div>
+
+</div>
+
+
+<!-- ==================================================
+     HTML編集エリア
+     
+     ・直接入力可能
+     ・コピー可能
+     ・手動貼り付け可能
+     ================================================== -->
+<textarea
+    id="HTMLBox"
+    placeholder="ここへHTMLを貼り付けたり編集できます。"></textarea>
+
+
+<script>
+// ==================================================
+// Ameblo投稿サポート Ver3.20
+// ==================================================
+
+
+// --------------------------------------------------
+// HTMLBoxと応答メッセージ欄を取得
+// --------------------------------------------------
+
+const HTMLBox =
+    document.getElementById("HTMLBox");
+
+const StatusBox =
+    document.getElementById("StatusBox");
+
+
+// --------------------------------------------------
+// Undo用
+//
+// 直前のHTMLBoxの内容を1つだけ保存する。
+// --------------------------------------------------
+
+let undoText = "";
+
+
+// --------------------------------------------------
+// 応答メッセージを表示
+// --------------------------------------------------
+
+function setStatus(message) {
+
+    StatusBox.textContent = message;
+
+}
+
+
+// --------------------------------------------------
+// Undo用に現在のHTMLBox内容を保存
+// --------------------------------------------------
+
+function saveUndo() {
+
+    undoText = HTMLBox.value;
+
+}
+
+
+// ==================================================
+// アメブロで禁止対象とするタグ
+// ==================================================
+//
+// titleも禁止対象に含める。
+// 必要になれば、この配列へタグ名を追加できる。
+// ==================================================
+
+const forbiddenTags = [
+
+    "html",
+    "head",
+    "title",
+    "body",
+
+    "script",
+    "style",
+
+    "iframe",
+    "frame",
+    "frameset",
+
+    "object",
+    "embed",
+
+    "form",
+    "input",
+    "textarea",
+    "button",
+
+    "meta",
+    "link",
+    "base"
+
+];
+
+
+// ==================================================
+// 禁止タグをエスケープする
+// ==================================================
+//
+// 例
+//
+// <script>
+// ↓
+// &lt;script&gt;
+//
+// ==================================================
+
+function escapeForbidden(text) {
+
+    forbiddenTags.forEach(tag => {
+
+        const re =
+            new RegExp(
+                `</?${tag}\\b[^>]*>`,
+                "gi"
+            );
+
+        text = text.replace(
+            re,
+            match => {
+
+                return match
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
+
+            }
+        );
+
+    });
+
+    return text;
+
+}
+
+
+// ==================================================
+// エスケープされた禁止タグをHTMLタグへ戻す
+// ==================================================
+//
+// 例
+//
+// &lt;script&gt;
+// ↓
+// <script>
+//
+// ==================================================
+
+function restoreForbidden(text) {
+
+    forbiddenTags.forEach(tag => {
+
+        const re =
+            new RegExp(
+                `&lt;(\\/?)(${tag}\\b[^&]*?)&gt;`,
+                "gi"
+            );
+
+        text = text.replace(
+            re,
+            "<$1$2>"
+        );
+
+    });
+
+    return text;
+
+}
+
+
+// ==================================================
+// HTMLBox内に実際の禁止タグが存在するか調べる
+// ==================================================
+
+function hasRealForbidden(text) {
+
+    return forbiddenTags.some(tag => {
+
+        const re =
+            new RegExp(
+                `<\\/?${tag}\\b`,
+                "i"
+            );
+
+        return re.test(text);
+
+    });
+
+}
+
+
+// ==================================================
+// HTML全文をエスケープする
+// ==================================================
+//
+// これは「コード枠化」専用。
+//
+// 禁止タグだけではなく、HTML中のすべての
+// 「&」「<」「>」をエスケープする。
+//
+// これにより、プログラムそのものを
+// <pre>の中に安全に表示できる。
+//
+// ==================================================
+
+function escapeAll(text) {
+
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+}
+
+
+// ==================================================
+// 「読み込み」
+// ==================================================
+//
+// クリップボードのテキストをHTMLBoxへ読み込む。
+// ==================================================
+
+document
+    .getElementById("btnLoad")
+    .addEventListener("click", async () => {
+
+        // 読み込み前の状態をUndo用に保存
+        saveUndo();
+
+        try {
+
+            const text =
+                await navigator.clipboard.readText();
+
+            HTMLBox.value = text;
+
+            setStatus(
+                "クリップボードを読み込みました"
+            );
+
+        }
+        catch (error) {
+
+            setStatus(
+                "読み込みできませんでした"
+            );
+
+            console.error(error);
+
+        }
+
+    });
+
+
+// ==================================================
+// 「禁止タグ変換」
+// ==================================================
+//
+// トグル動作
+//
+// 実際の禁止タグが存在
+//     ↓
+// エスケープ文字へ変換
+//
+// 実際の禁止タグが存在しない
+//     ↓
+// エスケープ文字をHTMLタグへ戻す
+//
+// ==================================================
+
+document
+    .getElementById("btnToggle")
+    .addEventListener("click", () => {
+
+        // 変換前をUndo用に保存
+        saveUndo();
+
+
+        // 実際の禁止タグがあるか調べる
+        if (hasRealForbidden(HTMLBox.value)) {
+
+            // 禁止タグ → エスケープ文字
+            HTMLBox.value =
+                escapeForbidden(HTMLBox.value);
+
+            setStatus(
+                "エスケープ変換しました"
+            );
+
+        }
+        else {
+
+            // エスケープ文字 → HTMLタグ
+            HTMLBox.value =
+                restoreForbidden(HTMLBox.value);
+
+            setStatus(
+                "HTMLタグに戻しました"
+            );
+
+        }
+
+    });
+
+
+// ==================================================
+// 「コード枠化＋クリップ転送」
+// ==================================================
+//
+// この機能は「プログラムをブログへ掲載する」
+// ための専用機能。
+//
+// 禁止タグだけではなく、HTML全文をエスケープする。
+//
+// その後、黒背景の <div> + <pre> の中へ入れる。
+//
+// 最後に完成したHTMLをクリップボードへ転送する。
+// ==================================================
+
+document
+    .getElementById("btnCodeBox")
+    .addEventListener("click", async () => {
+
+        // 変換前をUndo用に保存
+        saveUndo();
+
+
+        // ------------------------------------------
+        // HTML全文をエスケープ
+        // ------------------------------------------
+
+        let text =
+            escapeAll(HTMLBox.value);
+
+
+        // ------------------------------------------
+        // 黒背景のコード表示枠を作る
+        //
+        // textの中身はすでにエスケープ済みなので、
+        // 中にあるHTMLタグが実行されることはない。
+        // ------------------------------------------
+
+        text =
+`<div style="background:#111;border:1px solid #666;border-radius:8px;padding:12px;overflow:auto;">
+<pre style="margin:0;color:#eee;font-family:Consolas,monospace;font-size:14px;line-height:1.5;white-space:pre-wrap;">${text}</pre>
+</div>`;
+
+
+        // ------------------------------------------
+        // HTMLBoxも変換後の内容に変更
+        // ------------------------------------------
+
+        HTMLBox.value = text;
+
+
+        // ------------------------------------------
+        // クリップボードへ転送
+        // ------------------------------------------
+
+        try {
+
+            await navigator.clipboard.writeText(text);
+
+            setStatus(
+                "コード枠化して転送しました"
+            );
+
+        }
+        catch (error) {
+
+            setStatus(
+                "転送失敗（手動コピーしてください）"
+            );
+
+            console.error(error);
+
+        }
+
+    });
+
+
+// ==================================================
+// 「Undo」
+// ==================================================
+//
+// 直前のHTMLBox内容へ1回戻す。
+//
+// Undo後は現在の内容をundoTextへ入れるため、
+// もう一度押せば逆方向へ1回戻ることができる。
+// ==================================================
+
+document
+    .getElementById("btnUndo")
+    .addEventListener("click", () => {
+
+        // Undo可能な状態か確認
+        if (!undoText) {
+
+            setStatus(
+                "Undoできません"
+            );
+
+            return;
+
+        }
+
+
+        // 現在の内容を保存
+        const currentText =
+            HTMLBox.value;
+
+
+        // 直前の内容へ戻す
+        HTMLBox.value =
+            undoText;
+
+
+        // 今回の内容をUndo領域へ入れる
+        // （1回戻る操作として使用）
+        undoText =
+            currentText;
+
+
+        setStatus(
+            "Undoしました"
+        );
+
+    });
+
+</script>
+
+</body>
+</html>
