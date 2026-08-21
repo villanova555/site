@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Ver3.00 micro:bit リサージュゲーム</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+
+<style>
+body{
+    margin:0;
+    background:#111;
+    color:#7CFF7C;
+    font-family:Consolas,monospace;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+}
+canvas{
+    margin-top:20px;
+    border:2px solid #444;
+}
+.controls{width:900px;margin-top:20px;}
+.row{display:flex;align-items:center;margin:12px 0;}
+label{width:140px;}
+input[type=range]{width:800px;}
+.buttons{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:10px;
+    margin:18px 0;
+}
+button{
+    padding:10px 18px;
+    background:#222;
+    color:#7CFF7C;
+    border:1px solid #0f0;
+    cursor:pointer;
+}
+button:hover{background:#333;}
+.info{
+    text-align:center;
+    font-size:18px;
+    line-height:1.5;
+}
+.presetTitle{
+    text-align:center;
+    margin-top:12px;
+    font-size:18px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="canvasHolder"></div>
+
+<div class="controls">
+
+<div id="info" class="info"></div>
+
+<div class="row">
+<label>X周波数</label>
+<input id="sx" type="range" min="1" max="10" value="3" step="0.1">
+</div>
+
+<div class="row">
+<label>Y周波数</label>
+<input id="sy" type="range" min="1" max="10" value="2" step="0.1">
+</div>
+
+<div class="row">
+<label>位相差</label>
+<input id="sp" type="range" min="0" max="360" value="90" step="1">
+</div>
+
+<div class="buttons">
+<button id="connect">micro:bit接続</button>
+<button id="start">自動描画</button>
+<button id="stop">停止</button>
+</div>
+
+<div class="presetTitle">ゲームモード</div>
+
+<div class="buttons">
+<button onclick="setMode('free')">自由操作</button>
+<button onclick="setMode('circle')">円チャレンジ</button>
+<button onclick="setMode('shape')">図形合わせ</button>
+</div>
+
+<div class="presetTitle">プリセット</div>
+
+<div class="buttons">
+<button onclick="setPreset(1,1,90)">円</button>
+<button onclick="setPreset(2,1,90)">8の字</button>
+<button onclick="setPreset(3,2,90)">三葉</button>
+<button onclick="setPreset(3,1,90)">三つ輪</button>
+<button onclick="setPreset(4,3,90)">花形</button>
+<button onclick="setPreset(5,4,90)">花びら</button>
+</div>
+
+</div>
+
+<script>
+
+//----------------------------------
+// 各種変数
+//----------------------------------
+
+let sliderX,sliderY,sliderP;
+let auto=false;
+let t=0;
+
+let port,reader;
+let serialBuffer="";
+
+let gameMode="free";
+let score=0;
+let holdTime=0;
+let alreadyCleared=false;
+
+let target=null;
+
+const HOLD=1.5;
+
+const targets=[
+{name:"円",fx:1,fy:1,p:90},
+{name:"8の字",fx:2,fy:1,p:90},
+{name:"三葉",fx:3,fy:2,p:90},
+{name:"三つ輪",fx:3,fy:1,p:90},
+{name:"花形",fx:4,fy:3,p:90},
+{name:"花びら",fx:5,fy:4,p:90}
+];
+
+//----------------------------------
+
+function setup(){
+
+let c=createCanvas(1024,512);
+c.parent("canvasHolder");
+
+frameRate(30);
+
+sliderX=document.getElementById("sx");
+sliderY=document.getElementById("sy");
+sliderP=document.getElementById("sp");
+
+document.getElementById("connect").onclick=connectSerial;
+document.getElementById("start").onclick=()=>auto=true;
+document.getElementById("stop").onclick=()=>auto=false;
+
+}
+
+//----------------------------------
+
+function setPreset(x,y,p){
+
+auto=false;
+sliderX.value=x;
+sliderY.value=y;
+sliderP.value=p;
+
+}
+
+function setMode(m){
+
+gameMode=m;
+holdTime=0;
+alreadyCleared=false;
+
+if(m=="shape")nextTarget();
+
+}
+
+function nextTarget(){
+
+target=random(targets);
+
+}
+
+//----------------------------------
+
+async function connectSerial(){
+
+try{
+
+port=await navigator.serial.requestPort();
+
+await port.open({
+baudRate:115200
+});
+
+reader=port.readable.getReader();
+
+readSerial();
+
+}catch(e){
+
+alert("接続できませんでした");
+
+}
+
+}
+
+async function readSerial(){
+
+while(true){
+
+const {value,done}=await reader.read();
+
+if(done)break;
+
+serialBuffer+=new TextDecoder().decode(value);
+
+let lines=serialBuffer.split("\n");
+serialBuffer=lines.pop();
+
+for(let line of lines){
+
+let p=line.trim().split(",");
+
+if(p.length==3){
+
+sliderX.value=p[0];
+sliderY.value=p[1];
+
+if(gameMode=="circle")
+sliderP.value=90;
+else
+sliderP.value=p[2];
+
+auto=false;
+
+}
+
+}
+
+}
+
+}
+
+//----------------------------------
+
+function draw(){
+
+background(0);
+
+let fx=parseFloat(sliderX.value);
+let fy=parseFloat(sliderY.value);
+let phase=radians(parseFloat(sliderP.value));
+
+if(auto){
+
+t+=0.002;
+
+fx=3+sin(t*0.45)*2.5;
+fy=3+cos(t*0.31)*2.5;
+phase=radians((sin(t*0.25)*180)+180);
+
+sliderX.value=fx.toFixed(1);
+sliderY.value=fy.toFixed(1);
+sliderP.value=degrees(phase).toFixed(0);
+
+}
+
+let ph=degrees(phase);
+
+let clear=false;
+
+//----------------------------
+// 判定
+//----------------------------
+
+if(gameMode=="circle"){
+
+clear=Math.abs(fx-fy)<0.15;
+
+}
+
+if(gameMode=="shape"&&target){
+
+clear=
+Math.abs(fx-target.fx)<0.2&&
+Math.abs(fy-target.fy)<0.2&&
+Math.abs(ph-target.p)<10;
+
+}
+
+if(clear){
+
+holdTime+=deltaTime/1000;
+
+if(holdTime>=HOLD&&!alreadyCleared){
+
+score++;
+alreadyCleared=true;
+
+if(gameMode=="shape"){
+
+nextTarget();
+holdTime=0;
+alreadyCleared=false;
+
+}
+
+}
+
+}else{
+
+holdTime=0;
+alreadyCleared=false;
+
+}
+
+//----------------------------
+
+push();
+
+translate(width/2,height/2);
+
+// お手本（薄いマゼンタ）
+
+if(gameMode=="shape"&&target){
+
+stroke(255,120,220,70);
+strokeWeight(3);
+noFill();
+
+beginShape();
+
+for(let a=0;a<=TWO_PI;a+=0.01){
+
+vertex(
+380*sin(target.fx*a+radians(target.p)),
+180*sin(target.fy*a)
+);
+
+}
+
+endShape();
+
+}
+
+if(auto)
+rotate(sin(t*0.12)*0.35);
+
+// プレイヤー軌跡
+
+stroke(0,255,0,30);
+strokeWeight(6);
+noFill();
+
+beginShape();
+
+for(let a=0;a<=TWO_PI;a+=0.01){
+
+vertex(
+380*sin(fx*a+phase),
+180*sin(fy*a)
+);
+
+}
+
+endShape();
+
+stroke(120,255,120);
+strokeWeight(2);
+
+beginShape();
+
+for(let a=0;a<=TWO_PI;a+=0.01){
+
+vertex(
+380*sin(fx*a+phase),
+180*sin(fy*a)
+);
+
+}
+
+endShape();
+
+pop();
+
+//----------------------------
+// 表示
+//----------------------------
+
+fill(255,120,220);
+
+textSize(22);
+
+textAlign(RIGHT,TOP);
+
+if(gameMode=="shape"&&target)
+text("お題："+target.name,width-20,20);
+
+if(gameMode=="circle")
+text("お題：円",width-20,20);
+
+document.getElementById("info").innerHTML=
+
+`Mode=${gameMode}
+　Score=${score}
+　保持=${holdTime.toFixed(1)}秒
+　X=${fx.toFixed(2)}
+　Y=${fy.toFixed(2)}
+　位相=${ph.toFixed(0)}°`;
+
+}
+
+</script>
+
+</body>
+</html>
