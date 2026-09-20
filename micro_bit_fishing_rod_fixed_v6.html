@@ -1,0 +1,1310 @@
+<html>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>micro:bit 釣りゲーム (パラメータ操作対応)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 h-screen w-screen flex flex-col justify-between select-none">
+
+    <div id="game-container" class="relative w-full h-full flex flex-col">
+        <!-- Top HUD -->
+        <div id="hud" class="absolute top-0 left-0 w-full p-4 flex justify-between items-center pointer-events-none z-10">
+            <div class="bg-slate-800/80 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-700 shadow-lg flex gap-6">
+                <div>
+                    <span class="text-xs text-slate-400 block">SCORE</span>
+                    <span id="hud-score" class="text-2xl font-bold text-amber-400">0</span>
+                </div>
+                <div>
+                    <span class="text-xs text-slate-400 block">TIME</span>
+                    <span id="hud-time" class="text-2xl font-bold text-cyan-400">03:00</span>
+                </div>
+            </div>
+            
+            <!-- Dynamic Wind Equalizer Indicator (Top Center) -->
+            <div class="bg-slate-900/90 backdrop-blur-md px-6 py-3 rounded-2xl border border-slate-700 shadow-2xl flex flex-col items-center">
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="text-xs text-slate-400 font-bold tracking-wider">WIND METER</span>
+                    <span id="wind-speed-text" class="text-sm font-mono font-bold text-emerald-400">2.5 m/s</span>
+                </div>
+                <div id="wind-equalizer-bars" class="flex items-center gap-1 h-6 bg-slate-950 px-3 py-1 rounded-lg border border-slate-800">
+                    <!-- Dynamic wind bars -->
+                </div>
+            </div>
+
+            <div class="bg-slate-800/80 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-700 shadow-lg flex items-center gap-6">
+                <div>
+                    <span class="text-xs text-slate-400 block">MODE</span>
+                    <span id="hud-mode" class="text-sm font-semibold text-purple-400">デバッグモード</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Power Meter for Rod Game Mode: below the top-center wind display -->
+        <div id="power-meter-container" class="absolute top-[92px] left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-700 shadow-2xl flex items-center gap-3 z-10 pointer-events-none">
+            <span class="text-[10px] text-slate-400 font-bold tracking-wider">POWER</span>
+            <div id="power-meter-bars" class="flex items-center gap-1 w-48 h-6 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+                <!-- Dynamically populated horizontal red bars -->
+            </div>
+            <span id="power-meter-value" class="text-xs font-mono font-bold text-red-400 min-w-[34px] text-right">0%</span>
+        </div>
+
+        <!-- Parameter HUD -->
+        <div id="param-hud" class="absolute top-20 left-4 bg-slate-800/80 backdrop-blur-md px-4 py-3 rounded-xl border border-slate-700 shadow-lg pointer-events-none z-10 text-xs space-y-1">
+            <div class="font-bold text-slate-300 border-b border-slate-700 pb-1 mb-1">投擲パラメータ</div>
+            <div>方角 (Direction): <span id="param-dir" class="text-cyan-400 font-mono">0.0</span></div>
+            <div>発射パワー (Power): <span id="param-pow" class="text-amber-400 font-mono">0.0</span></div>
+            <div>着弾予想時間 (Est. Time): <span id="param-time" class="text-emerald-400 font-mono">0.0s</span></div>
+            <div>飛距離ゾーン (Zone): <span id="param-zone" class="text-purple-400 font-mono">1</span></div>
+        </div>
+
+        <!-- Red Flash Overlay for Turtle Hits -->
+        <div id="flash-overlay" class="absolute inset-0 bg-red-600 pointer-events-none z-20 opacity-0 transition-opacity duration-150"></div>
+
+        <!-- Bottom Controls Bar -->
+        <div class="absolute bottom-4 left-0 w-full px-6 flex justify-between items-center pointer-events-none z-10">
+            <div class="bg-slate-800/80 backdrop-blur-md px-4 py-3 rounded-xl border border-slate-700 shadow-lg pointer-events-auto flex items-center gap-3 flex-wrap">
+                <button id="btn-settings" class="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold px-3 py-2 rounded-lg transition active:scale-95 shadow text-xs">設定</button>
+                
+                <!-- Main Screen Mode Switch: Debug vs Rod Game -->
+                <div class="flex items-center gap-1.5 border-r border-slate-700 pr-3">
+                    <span class="text-xs text-slate-400 font-semibold">操作:</span>
+                    <div class="inline-flex rounded-lg p-0.5 bg-slate-900 border border-slate-700">
+                        <button id="mode-debug" class="px-2.5 py-1 text-xs font-bold rounded-md bg-cyan-600 text-white transition shadow">① デバッグモード</button>
+                        <button id="mode-rod" class="px-2.5 py-1 text-xs font-bold rounded-md text-slate-300 transition">② 釣り竿モード</button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-1.5">
+                    <span class="text-xs text-slate-400 font-semibold">視点:</span>
+                    <div class="inline-flex rounded-lg p-0.5 bg-slate-900 border border-slate-700">
+                        <button id="cam-low" class="px-2 py-1 text-xs font-bold rounded-md text-slate-300 transition">低</button>
+                        <button id="cam-mid" class="px-2 py-1 text-xs font-bold rounded-md bg-cyan-600 text-white transition shadow">中</button>
+                        <button id="cam-high" class="px-2 py-1 text-xs font-bold rounded-md text-slate-300 transition">高</button>
+                        <button id="cam-vhigh" class="px-2 py-1 text-xs font-bold rounded-md text-slate-300 transition">超高</button>
+                        <button id="cam-debug1" class="px-2 py-1 text-xs font-bold rounded-md text-slate-300 transition">俯瞰</button>
+                        <button id="cam-debug2" class="px-2 py-1 text-xs font-bold rounded-md text-slate-300 transition">真上</button>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="btn-toggle-persist" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition shadow">着弾点固定: OFF</button>
+                    <button id="btn-clear-persist" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 text-slate-400 hover:bg-slate-700 transition">クリア</button>
+                    <button id="btn-toggle-paths" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition shadow">魚進路: OFF</button>
+                    <button id="btn-toggle-rod-display" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-cyan-600 text-white transition shadow">竿表示: 長竿</button>
+                </div>
+                <div class="text-xs text-slate-300 leading-relaxed hidden lg:block">
+                    <span>マウス左右：方角 | 上下：パワー | 左クリック：投擲（画面下82%より上で最小パワー）</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Title Overlay Screen -->
+        <div id="screen-title" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center z-30">
+            <div class="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl text-center">
+                <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">釣りゲーム</h1>
+                <p class="text-slate-400 mb-6">3分間で魚を狙え！遠投ボーナス最大4倍！</p>
+                <div class="space-y-2 text-left bg-slate-800/50 p-4 rounded-xl mb-6 text-sm text-slate-300">
+                    <p>サメ：＋10点 × ゾーン倍率 (1〜4)</p>
+                    <p>サバ：＋5点 × ゾーン倍率 (1〜4)</p>
+                    <p>うなぎ：＋1点 × ゾーン倍率 (1〜4)</p>
+                    <p>亀：－10点（減点キャラクター）</p>
+                </div>
+                <button id="btn-start" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg transition transform active:scale-95">START</button>
+            </div>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="screen-result" class="absolute inset-0 bg-slate-950/90 backdrop-blur-md hidden flex flex-col items-center justify-center z-30">
+            <div class="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl text-center">
+                <h2 class="text-3xl font-extrabold text-amber-400 mb-4">ゲーム終了</h2>
+                <div id="result-stats" class="space-y-2 bg-slate-800/50 p-4 rounded-xl mb-6 text-sm text-slate-200 text-left">
+                </div>
+                <button id="btn-restart" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold rounded-xl shadow-lg transition transform active:scale-95">もう一度プレイ</button>
+            </div>
+        </div>
+
+        <!-- Settings Modal Screen -->
+        <div id="screen-settings" class="absolute inset-0 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center z-30">
+            <div class="max-w-lg w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
+                <h2 class="text-2xl font-bold text-slate-100 mb-6">設定画面</h2>
+                <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">重力: <span id="val-gravity">0.15</span></label>
+                        <input type="range" id="input-gravity" min="0.05" max="0.4" step="0.01" value="0.15" class="w-full accent-cyan-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">基本風速: <span id="val-wind">2.5</span></label>
+                        <input type="range" id="input-wind" min="-5" max="5" step="0.1" value="2.5" class="w-full accent-cyan-500">
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                        <span class="text-xs font-semibold text-slate-300">風の影響 (Wind ON/OFF)</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="input-wind-active" checked class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-600"></div>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">魚の移動速度: <span id="val-speed">1.0</span></label>
+                        <input type="range" id="input-speed" min="0.5" max="2.5" step="0.1" value="1.0" class="w-full accent-cyan-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">魚のサイズ倍率: <span id="val-size">1.0</span></label>
+                        <input type="range" id="input-size" min="0.5" max="2.5" step="0.1" value="1.0" class="w-full accent-cyan-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 mb-1">当たり判定加減 (Margin): <span id="val-hit-margin">1.0</span>倍</label>
+                        <input type="range" id="input-hit-margin" min="0.5" max="2.0" step="0.1" value="1.0" class="w-full accent-cyan-500">
+                    </div>
+                    <div class="border-t border-slate-800 pt-4">
+                        <label class="block text-xs font-semibold text-slate-400 mb-2">通信設定</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer text-sm">
+                                <input type="radio" name="comm-mode" value="serial" class="accent-cyan-500"> A：Serial
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer text-sm">
+                                <input type="radio" name="comm-mode" value="ble" class="accent-cyan-500"> B：BLE
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer text-sm">
+                                <input type="radio" name="comm-mode" value="demo" checked class="accent-cyan-500"> C：デモモード
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-8 flex gap-4">
+                    <button id="btn-save-settings" class="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition shadow">保存</button>
+                    <button id="btn-close-settings" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition shadow">閉じる</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SoundManager {
+            constructor() {
+                this.ctx = null;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            playSwing() {
+                if (!this.ctx) return;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+            playFlight() {
+                if (!this.ctx) return;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(300, this.ctx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            }
+            playSplash() {
+                if (!this.ctx) return;
+                let bufferSize = this.ctx.sampleRate * 0.3;
+                let buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                let data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                let noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                let filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 800;
+                let gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }
+            playHit() {
+                if (!this.ctx) return;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+            playTurtleHit() {
+                if (!this.ctx) return;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.4);
+            }
+        }
+
+        const soundManager = new SoundManager();
+
+        let gameState = 'TITLE'; // TITLE, PLAYING, RESULT
+        let score = 0;
+        let gameTime = 180;
+        let timerInterval = null;
+        
+        let stats = { shark: 0, saba: 0, unagi: 0, turtle: 0, miss: 0 };
+
+        // 投擲パワー：従来の最大28から16へ縮小。
+        // 最大飛距離が極端に遠くならないよう、速度を約57%に抑える。
+        const MIN_POWER = 4;
+        const MAX_POWER = 16;
+        const ROD_MAX_AZIMUTH_DEG = 35; // ②釣り竿モードの左右振り角（最大±35度）
+
+        let config = {
+            gravity: 0.15,
+            baseWindSpeed: 2.5,
+            windActive: true,
+            fishSpeedMultiplier: 1.0,
+            fishSizeMultiplier: 1.0,
+            hitMarginMultiplier: 1.0,
+            commMode: 'demo'
+        };
+
+        let playMode = 'DEBUG'; // 'DEBUG' or 'ROD'
+        let rodAnimState = {
+            animating: false,
+            progress: 0,
+            elapsed: 0,
+            startTime: 0,
+            trajectoryData: null,
+            targetAngle: 45
+        };
+
+        let cameraHeightMode = 'MID';
+        let persistLandingEnabled = false;
+        let showFishPaths = false;
+        let rodDisplayMode = 'LONG'; // 'LONG' = 全弾道+着弾点 / 'SHORT' = 手前半分のみ
+        let persistedMarkers = [];
+
+        let currentWindSpeed = 0;
+        let targetWindSpeed = 0;
+        let windTransitionTimer = 0;
+        const WIND_CHANGE_FRAMES = 480; // 約8秒ごとに風向・風速をゆっくり変更
+        const WIND_MIN_SPEED = 0.8;
+
+        let fishes = [];
+        let explosions = [];
+        let ripples = [];
+
+        let lure = {
+            x: 0, y: 0, z: 0,
+            vx: 0, vy: 0, vz: 0,
+            active: false
+        };
+
+        function setup() {
+            let canvas = createCanvas(windowWidth, windowHeight, WEBGL);
+            canvas.parent('game-container');
+
+            // 開始時から適度な風を吹かせる。左右は同じ確率。
+            setRandomWind(true);
+            
+            let types = [
+                { name: 'shark', speed: 2.2, score: 10, size: 60, color: [140, 150, 170] },
+                { name: 'saba', speed: 1.4, score: 5, size: 45, color: [90, 160, 210] },
+                { name: 'unagi', speed: 0.8, score: 1, size: 40, color: [120, 80, 50] },
+                { name: 'turtle', speed: 1.0, score: -10, size: 50, color: [70, 170, 70] }
+            ];
+
+            for (let i = 0; i < 14; i++) {
+                let t = types[Math.floor(Math.random() * types.length)];
+                fishes.push({
+                    x: random(-width * 1.5, width * 1.5),
+                    y: 0,
+                    z: random(-1800, -600),
+                    speed: t.speed,
+                    score: t.score,
+                    baseSize: t.size,
+                    color: t.color,
+                    type: t.name,
+                    offset: random(100)
+                });
+            }
+
+            buildSoundbarUI();
+            buildPowerMeterUI();
+            setupUIControls();
+        }
+
+        function buildPowerMeterUI() {
+            let container = document.getElementById('power-meter-bars');
+            container.innerHTML = '';
+            for (let i = 0; i < 12; i++) {
+                let bar = document.createElement('div');
+                bar.id = `power-bar-${i}`;
+                bar.className = 'w-3 h-full bg-slate-800 rounded-sm transition-all duration-100';
+                container.appendChild(bar);
+            }
+        }
+
+        function updatePowerMeterUI(powerVal) {
+            let norm = (powerVal - MIN_POWER) / (MAX_POWER - MIN_POWER);
+            norm = constrain(norm, 0, 1);
+            let activeCount = Math.round(norm * 12);
+            let percent = Math.round(norm * 100);
+
+            document.getElementById('power-meter-value').innerText = `${percent}%`;
+
+            for (let i = 0; i < 12; i++) {
+                let bar = document.getElementById(`power-bar-${i}`);
+                if (!bar) continue;
+                if (i < activeCount) {
+                    bar.className = 'w-3 h-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] rounded-sm transition-all duration-100';
+                } else {
+                    bar.className = 'w-3 h-full bg-slate-800 rounded-sm transition-all duration-100';
+                }
+            }
+        }
+
+        function setupUIControls() {
+            let btnDebugMode = document.getElementById('mode-debug');
+            let btnRodMode = document.getElementById('mode-rod');
+            let powerMeterContainer = document.getElementById('power-meter-container');
+
+            btnDebugMode.addEventListener('click', () => {
+                playMode = 'DEBUG';
+                btnDebugMode.className = 'px-2.5 py-1 text-xs font-bold rounded-md bg-cyan-600 text-white transition shadow';
+                btnRodMode.className = 'px-2.5 py-1 text-xs font-bold rounded-md text-slate-300 transition';
+                powerMeterContainer.classList.remove('hidden');
+                document.getElementById('hud-mode').innerText = 'デバッグモード';
+            });
+
+            btnRodMode.addEventListener('click', () => {
+                playMode = 'ROD';
+                btnRodMode.className = 'px-2.5 py-1 text-xs font-bold rounded-md bg-cyan-600 text-white transition shadow';
+                btnDebugMode.className = 'px-2.5 py-1 text-xs font-bold rounded-md text-slate-300 transition';
+                powerMeterContainer.classList.remove('hidden');
+                document.getElementById('hud-mode').innerText = '釣り竿モード';
+            });
+
+            let btnLow = document.getElementById('cam-low');
+            let btnMid = document.getElementById('cam-mid');
+            let btnHigh = document.getElementById('cam-high');
+            let btnVHigh = document.getElementById('cam-vhigh');
+            let btnDebug1 = document.getElementById('cam-debug1');
+            let btnDebug2 = document.getElementById('cam-debug2');
+
+            let buttons = [
+                { id: 'LOW', el: btnLow },
+                { id: 'MID', el: btnMid },
+                { id: 'HIGH', el: btnHigh },
+                { id: 'VHIGH', el: btnVHigh },
+                { id: 'DEBUG1', el: btnDebug1 },
+                { id: 'DEBUG2', el: btnDebug2 }
+            ];
+
+            function updateCamButtons(mode) {
+                cameraHeightMode = mode;
+                buttons.forEach(b => {
+                    if (b.id === mode) {
+                        b.el.className = 'px-2.5 py-1 text-xs font-bold rounded-md bg-cyan-600 text-white transition shadow';
+                    } else {
+                        b.el.className = 'px-2.5 py-1 text-xs font-bold rounded-md text-slate-300 transition';
+                    }
+                });
+            }
+
+            buttons.forEach(b => {
+                b.el.addEventListener('click', () => updateCamButtons(b.id));
+            });
+
+            let btnTogglePersist = document.getElementById('btn-toggle-persist');
+            btnTogglePersist.addEventListener('click', () => {
+                persistLandingEnabled = !persistLandingEnabled;
+                if (persistLandingEnabled) {
+                    btnTogglePersist.innerText = '着弾点固定: ON';
+                    btnTogglePersist.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-red-600 text-white transition shadow';
+                } else {
+                    btnTogglePersist.innerText = '着弾点固定: OFF';
+                    btnTogglePersist.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition shadow';
+                }
+            });
+
+            let btnClearPersist = document.getElementById('btn-clear-persist');
+            btnClearPersist.addEventListener('click', () => {
+                persistedMarkers = [];
+            });
+
+            let btnTogglePaths = document.getElementById('btn-toggle-paths');
+            btnTogglePaths.addEventListener('click', () => {
+                showFishPaths = !showFishPaths;
+                if (showFishPaths) {
+                    btnTogglePaths.innerText = '魚進路: ON';
+                    btnTogglePaths.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-cyan-600 text-white transition shadow';
+                } else {
+                    btnTogglePaths.innerText = '魚進路: OFF';
+                    btnTogglePaths.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 transition shadow';
+                }
+            });
+
+            // 長竿：現状の全弾道＋着弾点
+            // 短竿：弾道を手前半分で打ち切り、着弾点を表示しない
+            let btnToggleRodDisplay = document.getElementById('btn-toggle-rod-display');
+            btnToggleRodDisplay.addEventListener('click', () => {
+                rodDisplayMode = rodDisplayMode === 'LONG' ? 'SHORT' : 'LONG';
+                if (rodDisplayMode === 'LONG') {
+                    btnToggleRodDisplay.innerText = '竿表示: 長竿';
+                    btnToggleRodDisplay.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-cyan-600 text-white transition shadow';
+                } else {
+                    btnToggleRodDisplay.innerText = '竿表示: 短竿';
+                    btnToggleRodDisplay.className = 'px-3 py-1.5 text-xs font-bold rounded-lg bg-amber-500 text-white transition shadow';
+                }
+            });
+        }
+
+        function draw() {
+            background(15, 23, 42);
+
+            if (gameState === 'PLAYING') {
+                updateWindDynamics();
+                updateGame();
+                updateParamHUD();
+            }
+
+            renderScene();
+        }
+
+        function setRandomWind(initial = false) {
+            const base = Math.max(WIND_MIN_SPEED, abs(config.baseWindSpeed));
+            // 風を少し強める。設定値2.5m/sなら、0.8～3.75m/s程度で変化。左右は50/50。
+            const maxWind = Math.max(base, base * 1.5);
+            const magnitude = random(WIND_MIN_SPEED, maxWind);
+            const sign = random() < 0.5 ? -1 : 1;
+            targetWindSpeed = magnitude * sign;
+            if (initial) currentWindSpeed = targetWindSpeed;
+        }
+
+        function updateWindDynamics() {
+            if (!config.windActive) {
+                currentWindSpeed = 0.0;
+                document.getElementById('wind-speed-text').innerText = `無風 (0.0 m/s)`;
+                updateSoundbarUI(0);
+                return;
+            }
+
+            windTransitionTimer++;
+            if (windTransitionTimer >= WIND_CHANGE_FRAMES) {
+                windTransitionTimer = 0;
+                setRandomWind(false);
+            }
+
+            // 急に風向が反転せず、約8秒周期でゆっくり変化させる。
+            currentWindSpeed = lerp(currentWindSpeed, targetWindSpeed, 0.004);
+
+            // 極端に弱い時間を短くする。完全な無風にはしない。
+            if (abs(currentWindSpeed) < 0.15) {
+                currentWindSpeed = currentWindSpeed < 0 ? -0.15 : 0.15;
+            }
+
+            let speedDisplay = abs(currentWindSpeed).toFixed(1);
+            let dirSymbol = currentWindSpeed >= 0 ? '右風 →' : '← 左風';
+            document.getElementById('wind-speed-text').innerText = `${dirSymbol} (${speedDisplay} m/s)`;
+            updateSoundbarUI(currentWindSpeed);
+        }
+
+        function buildSoundbarUI() {
+            let container = document.getElementById('wind-equalizer-bars');
+            container.innerHTML = '';
+            for (let i = -7; i <= 7; i++) {
+                let bar = document.createElement('div');
+                bar.id = `wind-bar-${i}`;
+                if (i === 0) {
+                    bar.className = 'w-1 h-5 bg-slate-500 rounded-full mx-1';
+                } else {
+                    bar.className = 'w-2 h-5 bg-slate-800 rounded-sm transition-all duration-300';
+                }
+                container.appendChild(bar);
+            }
+        }
+
+        function updateSoundbarUI(windVal) {
+            let activeCount = Math.min(Math.floor(Math.abs(windVal) * 1.4), 7);
+            
+            for (let i = -7; i <= 7; i++) {
+                let bar = document.getElementById(`wind-bar-${i}`);
+                if (!bar || i === 0) continue;
+
+                let isActive = false;
+                let colorClass = 'bg-slate-800';
+
+                if (windVal > 0 && i > 0 && i <= activeCount) {
+                    isActive = true;
+                } else if (windVal < 0 && i < 0 && Math.abs(i) <= activeCount) {
+                    isActive = true;
+                }
+
+                if (isActive) {
+                    let absI = Math.abs(i);
+                    if (absI <= 3) {
+                        colorClass = 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]';
+                    } else if (absI <= 5) {
+                        colorClass = 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]';
+                    } else {
+                        colorClass = 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]';
+                    }
+                }
+
+                bar.className = `w-2 h-5 rounded-sm transition-all duration-300 ${colorClass}`;
+            }
+        }
+
+        function getMouseParameters() {
+            let normX = (mouseX - width / 2) / (width / 2);
+            let direction = normX * 500;
+
+            // 画面最下部までマウスを持っていかなくても近投が可能なように、
+            // パワーの最低点を画面高さの82%に設定する。
+            // これにより下部コントロールパネルへ入らずに最小パワーを選べる。
+            const powerBottomY = height * 0.82;
+            let power = map(mouseY, powerBottomY, 0, MIN_POWER, MAX_POWER);
+            power = constrain(power, MIN_POWER, MAX_POWER);
+            return { direction, power };
+        }
+
+        function calculateTrajectory() {
+            let { direction, power } = getMouseParameters();
+            let simX = 0;
+            let simY = 0;
+            let simZ = 200;
+            let vy = -power * 0.45 - 3.5;
+            let vz = -power * 1.5;
+            let vx;
+
+            if (playMode === 'ROD') {
+                // 釣り竿モードでは、竿の向きと実際の浮きの飛行方向を完全に一致させる。
+                // 左右は最大±35度に抑え、低パワー時だけ横へ大きく飛びすぎる問題も防ぐ。
+                const azimuth = map(direction, -500, 500, -radians(ROD_MAX_AZIMUTH_DEG), radians(ROD_MAX_AZIMUTH_DEG));
+                vx = -vz * tan(azimuth);
+            } else {
+                vx = direction * 0.04;
+            }
+
+            let points = [];
+            points.push({ x: simX, y: simY, z: simZ });
+
+            let steps = 0;
+            for (let i = 0; i < 120; i++) {
+                if (config.windActive) {
+                    vx += currentWindSpeed * 0.005;
+                }
+                vy += config.gravity;
+                simX += vx;
+                simY += vy;
+                simZ += vz;
+                steps++;
+                points.push({ x: simX, y: simY, z: simZ });
+                if (simY >= 0) break;
+            }
+            let estTime = (steps * (1/60)).toFixed(1);
+            let landing = points[points.length - 1];
+
+            let zVal = landing.z;
+            let zone = 1;
+            if (zVal < -1500) zone = 4;
+            else if (zVal < -1200) zone = 3;
+            else if (zVal < -900) zone = 2;
+
+            return { points, landing, estTime, direction, power, zone };
+        }
+
+        function updateParamHUD() {
+            let traj = calculateTrajectory();
+            document.getElementById('param-dir').innerText = traj.direction.toFixed(1);
+            document.getElementById('param-pow').innerText = traj.power.toFixed(1);
+            document.getElementById('param-time').innerText = `${traj.estTime}s`;
+            document.getElementById('param-zone').innerText = `${traj.zone} (×${traj.zone})`;
+
+            // POWERインジケータはデバッグ／釣り竿の両モードで常時表示
+            updatePowerMeterUI(traj.power);
+        }
+
+        function updateGame() {
+            for (let f of fishes) {
+                f.x -= f.speed * config.fishSpeedMultiplier;
+                f.y = sin(frameCount * 0.05 + f.offset) * 1.5;
+                if (f.x < -width * 1.8) {
+                    f.x = width * 1.8 + 200;
+                    f.z = random(-1800, -600);
+                }
+            }
+
+            // Handle Rod Swing Animation in Rod Game Mode
+            if (rodAnimState.animating) {
+                // 実時間で管理する。
+                // ①→②→③→④ : 1.5秒
+                // ④で待機         : 0.5秒
+                // ④→③→②→①     : 0.5秒
+                const total = 2.5;
+                const elapsed = (millis() - rodAnimState.startTime) / 1000;
+                rodAnimState.elapsed = elapsed;
+                rodAnimState.progress = constrain(elapsed / total, 0, 1);
+
+                if (elapsed >= total) {
+                    rodAnimState.animating = false;
+
+                    // ここが「①」に戻った瞬間。
+                    // このフレームで直ちに浮きを発射する。
+                    let traj = rodAnimState.trajectoryData;
+                    let launchPose = getRodPose(rodAnimState.targetAngle, traj.direction);
+
+                    if (persistLandingEnabled) {
+                        persistedMarkers.push({ x: traj.landing.x, z: traj.landing.z });
+                        if (persistedMarkers.length > 15) persistedMarkers.shift();
+                    }
+
+                    soundManager.playSwing();
+                    // ①で竿が停止した直後、このフレームで直ちに飛行開始。
+                    soundManager.playFlight();
+
+                    // 浮きは竿先（①の位置）から発射する。
+                    lure.x = launchPose.tip.x;
+                    lure.y = launchPose.tip.y;
+                    lure.z = launchPose.tip.z;
+                    lure.vy = -traj.power * 0.45 - 3.5;
+                    lure.vz = -traj.power * 1.5;
+                    const launchAzimuth = map(traj.direction, -500, 500, -radians(ROD_MAX_AZIMUTH_DEG), radians(ROD_MAX_AZIMUTH_DEG));
+                    lure.vx = -lure.vz * tan(launchAzimuth);
+                    lure.active = true;
+                }
+            }
+
+            if (lure.active) {
+                if (config.windActive) {
+                    lure.vx += currentWindSpeed * 0.005;
+                }
+                lure.vy += config.gravity;
+                lure.x += lure.vx;
+                lure.y += lure.vy;
+                lure.z += lure.vz;
+
+                if (lure.y >= 0) {
+                    lure.active = false;
+                    soundManager.playSplash();
+                    checkCollision(lure.x, lure.z);
+                    ripples.push({ x: lure.x, z: lure.z, r: 10, alpha: 255 });
+                }
+            }
+
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                ripples[i].r += 2;
+                ripples[i].alpha -= 5;
+                if (ripples[i].alpha <= 0) ripples.splice(i, 1);
+            }
+
+            for (let i = explosions.length - 1; i >= 0; i--) {
+                let exp = explosions[i];
+                exp.vy += 0.2;
+                exp.y += exp.vy;
+                exp.x += exp.vx;
+                exp.scale += 0.03;
+                exp.alpha -= 6;
+                if (exp.alpha <= 0) explosions.splice(i, 1);
+            }
+        }
+
+        // 竿の姿勢を3Dで計算する。
+        // angle は「水平=0度、真上=90度」とする。
+        // 90度を越えると竿先が背中側へ回り込み、120度で④になる。
+        // direction はマウス左右(-500〜+500)。釣り竿モードでは実際の発射速度ベクトルと同じ方位角にする。
+        function getRodPose(angleDeg, direction) {
+            const rodLen = 240;
+            const base = { x: 0, y: 0, z: 200 };
+
+            // 正面(-Z)を0度、左右への振り出しを±35度に制限する。
+            const azimuth = map(direction, -500, 500, -radians(ROD_MAX_AZIMUTH_DEG), radians(ROD_MAX_AZIMUTH_DEG));
+            const elev = radians(angleDeg);
+            const horizontal = cos(elev);
+
+            const forwardX = sin(azimuth);
+            const forwardZ = -cos(azimuth);
+
+            const tip = {
+                x: base.x + forwardX * horizontal * rodLen,
+                y: base.y - sin(elev) * rodLen,
+                z: base.z + forwardZ * horizontal * rodLen
+            };
+
+            const gripLen = 34;
+            const grip = {
+                x: base.x + forwardX * cos(elev) * gripLen,
+                y: base.y - sin(elev) * gripLen,
+                z: base.z + forwardZ * cos(elev) * gripLen
+            };
+
+            return { base, grip, tip };
+        }
+
+        // 人が振っているように見える滑らかな補間。
+        function easeInOutCubic(t) {
+            t = constrain(t, 0, 1);
+            return t < 0.5
+                ? 4 * t * t * t
+                : 1 - pow(-2 * t + 2, 3) / 2;
+        }
+
+        // ①→②→③→④→③→②→① の現在角度を返す。
+        function getCurrentRodAngle() {
+            if (!rodAnimState.animating) return rodAnimState.targetAngle;
+
+            const p = rodAnimState.progress;
+            const startAngle = rodAnimState.targetAngle;
+            const topAngle = 120;
+
+            if (p < 0.6) {
+                // 1.5秒: ①→④
+                const t = easeInOutCubic(p / 0.6);
+                return lerp(startAngle, topAngle, t);
+            }
+
+            if (p < 0.8) {
+                // 0.5秒: ④で完全停止
+                return topAngle;
+            }
+
+            // 0.5秒: ④→①
+            const t = easeInOutCubic((p - 0.8) / 0.2);
+            return lerp(topAngle, startAngle, t);
+        }
+
+        function renderScene() {
+            let camX = 0;
+            let camY = -200;
+            let camZ = 400;
+            let lookX = 0;
+            let lookY = -100;
+            let lookZ = -400;
+
+            if (cameraHeightMode === 'LOW') {
+                camY = -100;
+                camZ = 300;
+                lookY = -40;
+                lookZ = -500;
+            } else if (cameraHeightMode === 'HIGH') {
+                camY = -420;
+                camZ = 600;
+                lookY = -200;
+                lookZ = -300;
+            } else if (cameraHeightMode === 'VHIGH') {
+                camY = -700;
+                camZ = 900;
+                lookY = -350;
+                lookZ = -200;
+            } else if (cameraHeightMode === 'DEBUG1') {
+                camY = -1200;
+                camZ = 1200;
+                lookY = -600;
+                lookZ = -400;
+            } else if (cameraHeightMode === 'DEBUG2') {
+                camY = -2400;
+                camZ = 200;
+                lookY = -1000;
+                lookZ = -1000;
+            }
+
+            camera(camX, camY, camZ, lookX, lookY, lookZ, 0, 1, 0);
+
+            ambientLight(150);
+            directionalLight(255, 255, 255, 0.5, 1, -0.5);
+
+            // Pier
+            push();
+            translate(0, 0, 200);
+            fill(70, 60, 50);
+            box(width * 2, 40, 600);
+            pop();
+
+            // Water Surface Plane
+            push();
+            translate(0, 0, -800);
+            rotateX(HALF_PI);
+            fill(20, 70, 120, 200);
+            noStroke();
+            plane(width * 4, 4000);
+            pop();
+
+            // Fish Path Helpers
+            if (showFishPaths) {
+                push();
+                stroke(255, 255, 255, 90);
+                strokeWeight(2);
+                for (let zDepth = -600; zDepth >= -1800; zDepth -= 300) {
+                    beginShape(LINES);
+                    vertex(-width * 1.5, 0, zDepth);
+                    vertex(width * 1.5, 0, zDepth);
+                    endShape();
+                }
+                pop();
+            }
+
+            // Creatures
+            for (let f of fishes) {
+                push();
+                translate(f.x, f.y, f.z);
+                let actualSize = f.baseSize * config.fishSizeMultiplier;
+                
+                fill(f.color[0], f.color[1], f.color[2]);
+                stroke(255, 220);
+                strokeWeight(2);
+
+                if (f.type === 'shark') {
+                    beginShape();
+                    vertex(0, -actualSize * 0.8);
+                    vertex(actualSize * 0.8, 0);
+                    vertex(-actualSize * 0.8, 0);
+                    endShape(CLOSE);
+                    triangle(0, -actualSize * 1.5, actualSize * 0.3, -actualSize * 0.6, 0, -actualSize * 0.6);
+                } else if (f.type === 'saba') {
+                    arc(0, 0, actualSize * 1.4, actualSize * 1.2, PI, TWO_PI);
+                } else if (f.type === 'unagi') {
+                    beginShape();
+                    vertex(-actualSize * 0.7, 0);
+                    bezierVertex(-actualSize * 0.3, -actualSize * 0.8, actualSize * 0.3, -actualSize * 0.8, actualSize * 0.7, 0);
+                    endShape();
+                } else if (f.type === 'turtle') {
+                    arc(0, 0, actualSize, actualSize * 1.1, PI, TWO_PI);
+                    ellipse(0, -actualSize * 0.4, actualSize * 0.35, actualSize * 0.35);
+                }
+                pop();
+            }
+
+            // Explosions
+            for (let exp of explosions) {
+                push();
+                translate(exp.x, exp.y, exp.z);
+                tint(255, exp.alpha);
+                fill(255, 100, 50, exp.alpha);
+                noStroke();
+                ellipse(0, 0, exp.size * exp.scale * 2, exp.size * exp.scale * 2);
+                fill(255, 255, 0, exp.alpha);
+                ellipse(0, 0, exp.size * exp.scale, exp.size * exp.scale);
+                pop();
+            }
+
+            // Ripples
+            for (let r of ripples) {
+                push();
+                translate(r.x, 2, r.z);
+                rotateX(HALF_PI);
+                noFill();
+                stroke(255, 255, 255, r.alpha);
+                strokeWeight(2);
+                ellipse(0, 0, r.r * 2, r.r * 2);
+                pop();
+            }
+
+            // Persisted Landing Markers
+            for (let pm of persistedMarkers) {
+                push();
+                translate(pm.x, 2, pm.z);
+                stroke(239, 68, 68);
+                strokeWeight(8);
+                let sz = 35;
+                line(-sz, 0, -sz, sz, 0, sz);
+                line(-sz, 0, sz, sz, 0, -sz);
+                pop();
+            }
+
+            // Trajectory and Landing Marker
+            let isSettingsOpen = !document.getElementById('screen-settings').classList.contains('hidden');
+            let isTitleOpen = !document.getElementById('screen-title').classList.contains('hidden');
+            let isResultOpen = !document.getElementById('screen-result').classList.contains('hidden');
+
+            if (gameState === 'PLAYING' && !lure.active && !isSettingsOpen && !isTitleOpen && !isResultOpen) {
+                let traj = calculateTrajectory();
+
+                if (rodAnimState.animating) {
+                    // ①→②→③→④→③→②→① の竿そのものを3D描画する。
+                    let currentAngle = getCurrentRodAngle();
+                    let pose = getRodPose(currentAngle, traj.direction);
+
+                    // 竿本体
+                    push();
+                    stroke(251, 191, 36);
+                    strokeWeight(6);
+                    noFill();
+                    line(
+                        pose.base.x, pose.base.y, pose.base.z,
+                        pose.tip.x, pose.tip.y, pose.tip.z
+                    );
+
+                    // グリップ部分
+                    stroke(180, 120, 40);
+                    strokeWeight(10);
+                    line(
+                        pose.base.x, pose.base.y, pose.base.z,
+                        pose.grip.x, pose.grip.y, pose.grip.z
+                    );
+
+                    // 竿先
+                    stroke(255, 245, 180);
+                    strokeWeight(3);
+                    line(
+                        pose.grip.x, pose.grip.y, pose.grip.z,
+                        pose.tip.x, pose.tip.y, pose.tip.z
+                    );
+                    pop();
+
+                    // 竿先を小さな点で表示
+                    push();
+                    translate(pose.tip.x, pose.tip.y, pose.tip.z);
+                    noStroke();
+                    fill(255, 240, 180);
+                    sphere(4);
+                    pop();
+                } else {
+                    if (playMode === 'DEBUG') {
+                        // 長竿：従来どおり全弾道＋着弾点。
+                        // 短竿：弾道を手前側の半分で打ち切り、着弾点は表示しない。
+                        stroke(56, 189, 248);
+                        strokeWeight(3);
+                        noFill();
+                        beginShape();
+                        const pathEnd = rodDisplayMode === 'SHORT'
+                            ? Math.max(2, Math.ceil(traj.points.length * 0.5))
+                            : traj.points.length;
+                        for (let i = 0; i < pathEnd; i++) {
+                            const pt = traj.points[i];
+                            vertex(pt.x, pt.y, pt.z);
+                        }
+                        endShape();
+
+                        if (rodDisplayMode === 'LONG') {
+                            let land = traj.landing;
+                            push();
+                            translate(land.x, 2, land.z);
+                            stroke(255, 255, 255);
+                            strokeWeight(6);
+                            let sz = 24;
+                            line(-sz, 0, -sz, sz, 0, sz);
+                            line(-sz, 0, sz, sz, 0, -sz);
+                            pop();
+                        }
+
+                    } else if (playMode === 'ROD') {
+                        // 釣り竿モードでは、飛距離を誤解させないため
+                        // 放物線ではなく「方向と角度だけ」を示す固定長の直線を描く。
+                        const normPower = constrain((traj.power - MIN_POWER) / (MAX_POWER - MIN_POWER), 0, 1);
+                        const targetAngle = lerp(45, 90, normPower);
+                        const pose = getRodPose(targetAngle, traj.direction);
+
+                        stroke(251, 191, 36);
+                        strokeWeight(6);
+                        line(
+                            pose.base.x, pose.base.y, pose.base.z,
+                            pose.tip.x, pose.tip.y, pose.tip.z
+                        );
+
+                        // 竿先を小さな点で表示
+                        push();
+                        translate(pose.tip.x, pose.tip.y, pose.tip.z);
+                        noStroke();
+                        fill(255, 240, 180);
+                        sphere(4);
+                        pop();
+                    }
+                }
+            }
+
+            // Lure Ball (Red-White Bi-Colored Fishing Float: Top Red, Bottom White)
+            if (lure.active) {
+                push();
+                translate(lure.x, lure.y, lure.z);
+                noStroke();
+                
+                // Top Red Half
+                push();
+                translate(0, -3, 0);
+                fill(239, 68, 68);
+                scale(1, 0.6, 1);
+                sphere(8);
+                pop();
+
+                // Bottom White Half
+                push();
+                translate(0, 3, 0);
+                fill(248, 250, 252);
+                scale(1, 0.6, 1);
+                sphere(8);
+                pop();
+
+                pop();
+            }
+        }
+
+        function triggerRedFlash() {
+            let flash = document.getElementById('flash-overlay');
+            flash.classList.remove('opacity-0');
+            flash.classList.add('opacity-75');
+            setTimeout(() => {
+                flash.classList.remove('opacity-75');
+                flash.classList.add('opacity-0');
+            }, 150);
+            setTimeout(() => {
+                flash.classList.remove('opacity-0');
+                flash.classList.add('opacity-75');
+            }, 300);
+            setTimeout(() => {
+                flash.classList.remove('opacity-75');
+                flash.classList.add('opacity-0');
+            }, 450);
+        }
+
+        function checkCollision(lx, lz) {
+            let hit = false;
+            let zone = 1;
+            if (lz < -1500) zone = 4;
+            else if (lz < -1200) zone = 3;
+            else if (lz < -900) zone = 2;
+
+            for (let i = fishes.length - 1; i >= 0; i--) {
+                let f = fishes[i];
+                let d = dist(lx, lz, f.x, f.z);
+                let hitThreshold = ((f.baseSize * config.fishSizeMultiplier) + 35) * config.hitMarginMultiplier;
+                
+                if (d < hitThreshold) {
+                    hit = true;
+                    
+                    let awardedScore = f.score;
+                    if (awardedScore > 0) {
+                        awardedScore *= zone;
+                    }
+                    score += awardedScore;
+                    
+                    explosions.push({
+                        x: f.x,
+                        y: f.y,
+                        z: f.z,
+                        vx: random(-2, 2),
+                        vy: -6,
+                        vz: random(-2, 2),
+                        size: f.baseSize * config.fishSizeMultiplier,
+                        scale: 1.0,
+                        alpha: 255
+                    });
+
+                    if (f.type === 'turtle') {
+                        stats.turtle++;
+                        soundManager.playTurtleHit();
+                        triggerRedFlash();
+                    } else {
+                        if (f.type === 'shark') stats.shark++;
+                        else if (f.type === 'saba') stats.saba++;
+                        else if (f.type === 'unagi') stats.unagi++;
+                        soundManager.playHit();
+                    }
+
+                    fishes.splice(i, 1);
+                    let types = [
+                        { name: 'shark', speed: 2.2, score: 10, size: 60, color: [140, 150, 170] },
+                        { name: 'saba', speed: 1.4, score: 5, size: 45, color: [90, 160, 210] },
+                        { name: 'unagi', speed: 0.8, score: 1, size: 40, color: [120, 80, 50] },
+                        { name: 'turtle', speed: 1.0, score: -10, size: 50, color: [70, 170, 70] }
+                    ];
+                    let t = types[Math.floor(Math.random() * types.length)];
+                    fishes.push({
+                        x: width * 1.8 + 200,
+                        y: 0,
+                        z: random(-1800, -600),
+                        speed: t.speed,
+                        score: t.score,
+                        baseSize: t.size,
+                        color: t.color,
+                        type: t.name,
+                        offset: random(100)
+                    });
+                    break;
+                }
+            }
+            if (!hit) {
+                stats.miss++;
+            }
+            document.getElementById('hud-score').innerText = score;
+        }
+
+        function mousePressed() {
+            let isSettingsOpen = !document.getElementById('screen-settings').classList.contains('hidden');
+            let isTitleOpen = !document.getElementById('screen-title').classList.contains('hidden');
+            let isResultOpen = !document.getElementById('screen-result').classList.contains('hidden');
+
+            if (isSettingsOpen || isTitleOpen || isResultOpen) return;
+
+            if (gameState === 'PLAYING' && !lure.active && !rodAnimState.animating && mouseButton === LEFT) {
+                let traj = calculateTrajectory();
+
+                if (playMode === 'DEBUG') {
+                    if (persistLandingEnabled) {
+                        persistedMarkers.push({ x: traj.landing.x, z: traj.landing.z });
+                        if (persistedMarkers.length > 15) persistedMarkers.shift();
+                    }
+                    
+                    soundManager.playSwing();
+                    setTimeout(() => soundManager.playFlight(), 200);
+
+                    lure.x = 0;
+                    lure.y = 0;
+                    lure.z = 200;
+                    lure.vy = -traj.power * 0.45 - 3.5;
+                    lure.vz = -traj.power * 1.5;
+                    lure.vx = traj.direction * 0.04;
+                    lure.active = true;
+
+                } else if (playMode === 'ROD') {
+                    // パワーに応じて投擲姿勢①の角度を決める。
+                    // 近投=約45度、遠投=約90度。
+                    const normPower = constrain((traj.power - MIN_POWER) / (MAX_POWER - MIN_POWER), 0, 1);
+                    const targetAngle = lerp(45, 90, normPower);
+
+                    // ①→②→③→④を1.5秒、④で0.5秒、
+                    // ④→③→②→①を0.5秒。
+                    rodAnimState.animating = true;
+                    rodAnimState.progress = 0;
+                    rodAnimState.elapsed = 0;
+                    rodAnimState.startTime = millis();
+                    rodAnimState.targetAngle = targetAngle;
+                    rodAnimState.trajectoryData = traj;
+                }
+            }
+        }
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            soundManager.init();
+            document.getElementById('screen-title').classList.add('hidden');
+            gameState = 'PLAYING';
+            score = 0;
+            gameTime = 180;
+            stats = { shark: 0, saba: 0, unagi: 0, turtle: 0, miss: 0 };
+            persistedMarkers = [];
+            document.getElementById('hud-score').innerText = score;
+            
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                gameTime--;
+                let m = Math.floor(gameTime / 60);
+                let s = gameTime % 60;
+                document.getElementById('hud-time').innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                if (gameTime <= 0) {
+                    clearInterval(timerInterval);
+                    endGame();
+                }
+            }, 1000);
+        });
+
+        document.getElementById('btn-settings').addEventListener('click', () => {
+            document.getElementById('screen-settings').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-close-settings').addEventListener('click', () => {
+            document.getElementById('screen-settings').classList.add('hidden');
+        });
+
+        document.getElementById('btn-save-settings').addEventListener('click', () => {
+            config.gravity = parseFloat(document.getElementById('input-gravity').value);
+            config.baseWindSpeed = parseFloat(document.getElementById('input-wind').value);
+            config.windActive = document.getElementById('input-wind-active').checked;
+            if (config.windActive) {
+                windTransitionTimer = 0;
+                setRandomWind(true);
+            } else {
+                currentWindSpeed = 0;
+                targetWindSpeed = 0;
+            }
+            config.fishSpeedMultiplier = parseFloat(document.getElementById('input-speed').value);
+            config.fishSizeMultiplier = parseFloat(document.getElementById('input-size').value);
+            config.hitMarginMultiplier = parseFloat(document.getElementById('input-hit-margin').value);
+            
+            let selectedMode = document.querySelector('input[name="comm-mode"]:checked').value;
+            config.commMode = selectedMode;
+
+            document.getElementById('screen-settings').classList.add('hidden');
+        });
+
+        document.getElementById('input-gravity').addEventListener('input', (e) => {
+            document.getElementById('val-gravity').innerText = e.target.value;
+        });
+        document.getElementById('input-wind').addEventListener('input', (e) => {
+            document.getElementById('val-wind').innerText = e.target.value;
+        });
+        document.getElementById('input-speed').addEventListener('input', (e) => {
+            document.getElementById('val-speed').innerText = e.target.value;
+        });
+        document.getElementById('input-size').addEventListener('input', (e) => {
+            document.getElementById('val-size').innerText = e.target.value;
+        });
+        document.getElementById('input-hit-margin').addEventListener('input', (e) => {
+            document.getElementById('val-hit-margin').innerText = e.target.value;
+        });
+
+        function endGame() {
+            gameState = 'RESULT';
+            let html = `
+                <p class="font-bold text-lg mb-2">最終スコア：<span class="text-amber-400">${score}</span></p>
+                <p>サメ (SHARK)：${stats.shark}</p>
+                <p>サバ (SABA)：${stats.saba}</p>
+                <p>うなぎ (UNAGI)：${stats.unagi}</p>
+                <p>亀 (TURTLE)：${stats.turtle}</p>
+                <p>ミス (MISS)：${stats.miss}</p>
+            `;
+            document.getElementById('result-stats').innerHTML = html;
+            document.getElementById('screen-result').classList.remove('hidden');
+        }
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            document.getElementById('screen-result').classList.add('hidden');
+            document.getElementById('screen-title').classList.remove('hidden');
+            gameState = 'TITLE';
+        });
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
+    </script>
+</body>
+</html>
