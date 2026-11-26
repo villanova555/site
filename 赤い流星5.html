@@ -1,0 +1,914 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>赤い彗星</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #080a12;
+    color: #eee;
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+header {
+    width: min(1000px, 100%);
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+h1 {
+    margin: 0;
+    font-size: 28px;
+    color: #ff2222;
+    letter-spacing: 3px;
+    text-shadow: 0 0 12px #aa0000;
+}
+
+.info {
+    display: flex;
+    gap: 22px;
+    font-family: monospace;
+    font-size: 17px;
+    color: #aaa;
+}
+
+.info span {
+    color: #fff;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+#game {
+    display: block;
+    width: min(1000px, 100vw);
+    height: auto;
+    background: #000;
+    border: 1px solid #252a3a;
+    cursor: crosshair;
+    touch-action: manipulation;
+}
+
+.controls {
+    width: min(1000px, 100%);
+    padding: 12px 18px;
+    background: #111521;
+    border: 1px solid #252a3a;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px 30px;
+    align-items: center;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.control-title {
+    color: #aaa;
+    font-size: 13px;
+    margin-right: 4px;
+}
+
+label {
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+input {
+    accent-color: #ff3333;
+    cursor: pointer;
+    vertical-align: middle;
+    margin-right: 3px;
+}
+
+footer {
+    color: #888;
+    font-size: 13px;
+    padding: 10px;
+}
+
+@media (max-width: 600px) {
+    header {
+        justify-content: center;
+    }
+
+    .controls {
+        gap: 12px;
+    }
+
+    .info {
+        gap: 12px;
+        font-size: 14px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>赤い彗星</h1>
+
+    <div class="info">
+        <div>CLICK <span id="clickCount">0</span></div>
+        <div>HIT <span id="hitCount">0</span></div>
+        <div>RATE <span id="hitRate">0%</span></div>
+    </div>
+</header>
+
+<div class="controls">
+
+    <div class="control-group">
+        <span class="control-title">サウンド</span>
+        <label>
+            <input type="checkbox" id="soundOn" checked>
+            ON
+        </label>
+    </div>
+
+    <div class="control-group">
+        <span class="control-title">音量</span>
+
+        <label>
+            <input type="radio" name="volume" value="0.25">
+            小
+        </label>
+
+        <label>
+            <input type="radio" name="volume" value="0.55" checked>
+            中
+        </label>
+
+        <label>
+            <input type="radio" name="volume" value="1.0">
+            大
+        </label>
+    </div>
+
+    <div class="control-group">
+        <span class="control-title">爆発音</span>
+
+        <label>
+            <input type="radio" name="explosionType" value="light">
+            電子的・軽め
+        </label>
+
+        <label>
+            <input type="radio" name="explosionType" value="normal" checked>
+            電子的・普通
+        </label>
+
+        <label>
+            <input type="radio" name="explosionType" value="heavy">
+            重め
+        </label>
+    </div>
+
+</div>
+
+<canvas id="game" width="1000" height="800"></canvas>
+
+<footer>
+    赤い流星の頭部をクリックしてください。
+    赤い流星に命中すると爆発します。
+</footer>
+
+<script>
+"use strict";
+
+// ----------------------------------------
+// 基本設定
+// ----------------------------------------
+
+const W = 1000;
+const H = 800;
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const CONFIG = {
+    meteorCount: 60,
+    redCount: 3,
+    angle: Math.PI / 6,
+    minSpeed: 100,
+    maxSpeed: 230,
+    hitRadius: 19,
+    particleCount: 42,
+    tailRatio: 0.67
+};
+
+let clicks = 0;
+let hits = 0;
+
+let meteors = [];
+let particles = [];
+let hitMessages = [];
+
+let lastTime = 0;
+
+// ----------------------------------------
+// サウンド設定
+// ----------------------------------------
+
+let audioContext = null;
+let masterGain = null;
+
+let soundEnabled = true;
+let soundVolume = 0.55;
+let explosionType = "normal";
+
+const soundOnControl = document.getElementById("soundOn");
+
+soundOnControl.addEventListener("change", function() {
+    soundEnabled = this.checked;
+    updateMasterVolume();
+});
+
+document.querySelectorAll('input[name="volume"]').forEach(function(input) {
+    input.addEventListener("change", function() {
+        soundVolume = Number(this.value);
+        updateMasterVolume();
+    });
+});
+
+document.querySelectorAll('input[name="explosionType"]').forEach(function(input) {
+    input.addEventListener("change", function() {
+        explosionType = this.value;
+    });
+});
+
+function updateMasterVolume() {
+    if (!masterGain || !audioContext) return;
+
+    const target = soundEnabled ? soundVolume : 0;
+
+    masterGain.gain.setTargetAtTime(
+        target,
+        audioContext.currentTime,
+        0.02
+    );
+}
+
+function initializeAudio() {
+    if (!soundEnabled) return;
+
+    if (!audioContext) {
+        const AudioContextClass =
+            window.AudioContext || window.webkitAudioContext;
+
+        if (!AudioContextClass) return;
+
+        audioContext = new AudioContextClass();
+
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = soundVolume;
+        masterGain.connect(audioContext.destination);
+    }
+
+    if (audioContext.state === "suspended") {
+        audioContext.resume();
+    }
+
+    updateMasterVolume();
+}
+
+// ----------------------------------------
+// 音声合成用の共通関数
+// ----------------------------------------
+
+function createOscillator(type, frequency, endFrequency,
+                          duration, volume, waveform) {
+    if (!audioContext || !masterGain || !soundEnabled) return;
+
+    const now = audioContext.currentTime;
+
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    osc.type = waveform || "sine";
+
+    osc.frequency.setValueAtTime(frequency, now);
+
+    if (endFrequency > 0) {
+        osc.frequency.exponentialRampToValueAtTime(
+            endFrequency,
+            now + duration
+        );
+    }
+
+    gain.gain.setValueAtTime(volume, now);
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        now + duration
+    );
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+
+    osc.start(now);
+    osc.stop(now + duration + 0.02);
+}
+
+function createNoise(duration, volume, filterStart, filterEnd) {
+    if (!audioContext || !masterGain || !soundEnabled) return;
+
+    const now = audioContext.currentTime;
+    const bufferSize = Math.floor(
+        audioContext.sampleRate * duration
+    );
+
+    const buffer = audioContext.createBuffer(
+        1,
+        bufferSize,
+        audioContext.sampleRate
+    );
+
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
+
+    const noise = audioContext.createBufferSource();
+    const filter = audioContext.createBiquadFilter();
+    const gain = audioContext.createGain();
+
+    noise.buffer = buffer;
+
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(filterStart, now);
+    filter.frequency.exponentialRampToValueAtTime(
+        filterEnd,
+        now + duration
+    );
+
+    gain.gain.setValueAtTime(volume, now);
+    gain.gain.exponentialRampToValueAtTime(
+        0.001,
+        now + duration
+    );
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(masterGain);
+
+    noise.start(now);
+    noise.stop(now + duration);
+}
+
+// ----------------------------------------
+// 爆発音：電子的・軽め
+// ----------------------------------------
+
+function playExplosionLight() {
+    createOscillator(
+        "unused", 1100, 180, 0.18, 0.32, "sine"
+    );
+
+    createOscillator(
+        "unused", 420, 100, 0.28, 0.25, "triangle"
+    );
+
+    createNoise(0.18, 0.16, 3500, 700);
+}
+
+// ----------------------------------------
+// 爆発音：電子的・普通
+// ----------------------------------------
+
+function playExplosionNormal() {
+    createOscillator(
+        "unused", 500, 65, 0.55, 0.55, "sawtooth"
+    );
+
+    createOscillator(
+        "unused", 180, 45, 0.65, 0.55, "triangle"
+    );
+
+    createNoise(0.55, 0.42, 2500, 180);
+}
+
+// ----------------------------------------
+// 爆発音：重め（従来の爆発音）
+// ----------------------------------------
+
+function playExplosionHeavy() {
+    const now = audioContext.currentTime;
+
+    // 低音の爆発音
+    createOscillator(
+        "unused", 105, 28, 1.1, 0.9, "sine"
+    );
+
+    // 衝撃音
+    createOscillator(
+        "unused", 75, 22, 0.7, 0.7, "triangle"
+    );
+
+    // 破裂音
+    createNoise(0.8, 0.55, 1800, 120);
+
+    // 超低音
+    createOscillator(
+        "unused", 32, 20, 1.5, 0.5, "sine"
+    );
+}
+
+// ----------------------------------------
+// 爆発音の選択
+// ----------------------------------------
+
+function playExplosionSound() {
+    if (!soundEnabled || !audioContext) return;
+
+    switch (explosionType) {
+        case "light":
+            playExplosionLight();
+            break;
+
+        case "normal":
+            playExplosionNormal();
+            break;
+
+        case "heavy":
+            playExplosionHeavy();
+            break;
+    }
+}
+
+// ----------------------------------------
+// 通常クリック：電子発射音「ピシュン」
+// ----------------------------------------
+
+function playLaserSound() {
+    if (!soundEnabled || !audioContext) return;
+
+    createOscillator(
+        "unused", 1500, 220, 0.17, 0.45, "sawtooth"
+    );
+
+    createOscillator(
+        "unused", 2500, 800, 0.045, 0.15, "square"
+    );
+}
+
+// ----------------------------------------
+// 共通関数
+// ----------------------------------------
+
+function random(min, max) {
+    return min + Math.random() * (max - min);
+}
+
+function randomPastel() {
+    const colors = [
+        "#ffb6c1", "#add8e6", "#d8b4fe",
+        "#ffe4a3", "#a7f3d0", "#ffcba4",
+        "#c4b5fd", "#fbcfe8", "#bfdbfe"
+    ];
+
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
+function updateScore() {
+    document.getElementById("clickCount").textContent = clicks;
+    document.getElementById("hitCount").textContent = hits;
+
+    document.getElementById("hitRate").textContent =
+        clicks ? Math.round(hits / clicks * 100) + "%" : "0%";
+}
+
+// ----------------------------------------
+// 流星クラス
+// ----------------------------------------
+
+class Meteor {
+    constructor(isRed) {
+        this.isRed = isRed;
+        this.reset(true);
+    }
+
+    reset(initial = false) {
+        if (initial) {
+            this.x = random(0, W);
+            this.y = random(0, H);
+        } else if (Math.random() < 0.5) {
+            this.x = W + random(0, 120);
+            this.y = random(-50, H + 50);
+        } else {
+            this.x = random(-50, W + 50);
+            this.y = -random(0, 120);
+        }
+
+        this.speed = random(CONFIG.minSpeed, CONFIG.maxSpeed);
+
+        this.vx = -Math.cos(CONFIG.angle) * this.speed;
+        this.vy = Math.sin(CONFIG.angle) * this.speed;
+
+        this.rotation = random(0, Math.PI * 2);
+        this.rotationSpeed = random(-1.1, 1.1);
+
+        this.size = random(12, 17);
+
+        this.color = this.isRed ? "#ff0000" : randomPastel();
+
+        this.trailLength = random(35, 55) * CONFIG.tailRatio;
+    }
+
+    update(dt) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        this.rotation += this.rotationSpeed * dt;
+
+        if (this.x < -100 || this.y > H + 100) {
+            this.reset(false);
+        }
+    }
+
+    drawStar(x, y, outer, inner, rotation) {
+        ctx.beginPath();
+
+        for (let i = 0; i < 10; i++) {
+            const r = i % 2 === 0 ? outer : inner;
+            const a = rotation - Math.PI / 2 + i * Math.PI / 5;
+
+            const px = x + Math.cos(a) * r;
+            const py = y + Math.sin(a) * r;
+
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+
+        ctx.closePath();
+    }
+
+    draw() {
+        const angle = Math.atan2(this.vy, this.vx);
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(angle);
+
+        // 尾は3本。頭部との間に隙間を設ける
+        for (let i = 0; i < 3; i++) {
+            const spread = (i - 1) * 5;
+
+            const startX = -21;
+            const endX = -21 - this.trailLength;
+
+            const gradient = ctx.createLinearGradient(
+                startX, 0, endX, 0
+            );
+
+            gradient.addColorStop(0, this.color);
+            gradient.addColorStop(1, "rgba(0,0,0,0)");
+
+            ctx.beginPath();
+            ctx.moveTo(startX, spread * 0.35);
+            ctx.lineTo(endX, spread);
+
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = i === 1 ? 5 : 3;
+            ctx.lineCap = "round";
+
+            ctx.shadowBlur = this.isRed ? 18 : 12;
+            ctx.shadowColor = this.color;
+
+            ctx.stroke();
+        }
+
+        // 星型の頭部
+        ctx.shadowBlur = this.isRed ? 28 : 18;
+        ctx.shadowColor = this.color;
+
+        this.drawStar(
+            0, 0,
+            this.size,
+            this.size * 0.43,
+            this.rotation
+        );
+
+        ctx.fillStyle = this.color;
+        ctx.fill();
+
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = this.isRed ? "#ffaaaa" : "#ffffff";
+        ctx.stroke();
+
+        ctx.restore();
+    }
+}
+
+// ----------------------------------------
+// 爆発時の星粒子
+// ----------------------------------------
+
+class Particle {
+    constructor(x, y, angle) {
+        this.x = x;
+        this.y = y;
+
+        this.vx = Math.cos(angle) * random(180, 480);
+        this.vy = Math.sin(angle) * random(180, 480);
+
+        this.life = random(0.8, 1.6);
+        this.maxLife = this.life;
+
+        this.size = random(2.5, 5);
+
+        this.rotation = random(0, Math.PI * 2);
+        this.rotationSpeed = random(-5, 5);
+
+        this.trail = [];
+    }
+
+    update(dt) {
+        this.trail.push({x: this.x, y: this.y});
+
+        if (this.trail.length > 10) {
+            this.trail.shift();
+        }
+
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        this.vx *= 0.985;
+        this.vy *= 0.985;
+
+        this.rotation += this.rotationSpeed * dt;
+        this.life -= dt;
+    }
+
+    draw() {
+        const alpha = Math.max(0, this.life / this.maxLife);
+
+        if (this.trail.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(this.trail[0].x, this.trail[0].y);
+
+            for (const p of this.trail) {
+                ctx.lineTo(p.x, p.y);
+            }
+
+            ctx.strokeStyle = `rgba(255,30,30,${alpha * 0.7})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        ctx.save();
+
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.globalAlpha = alpha;
+
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "#ff0000";
+
+        ctx.beginPath();
+
+        for (let i = 0; i < 10; i++) {
+            const r = i % 2 === 0
+                ? this.size
+                : this.size * 0.4;
+
+            const a = -Math.PI / 2 + i * Math.PI / 5;
+
+            const px = Math.cos(a) * r;
+            const py = Math.sin(a) * r;
+
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+
+        ctx.closePath();
+
+        ctx.fillStyle = "#ff2222";
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+// ----------------------------------------
+// 爆発処理
+// ----------------------------------------
+
+function explode(x, y) {
+    for (let i = 0; i < CONFIG.particleCount; i++) {
+        const angle =
+            (Math.PI * 2 * i / CONFIG.particleCount) +
+            random(-0.08, 0.08);
+
+        particles.push(new Particle(x, y, angle));
+    }
+
+    hitMessages.push({
+        x: x,
+        y: y,
+        life: 1,
+        maxLife: 1
+    });
+}
+
+// ----------------------------------------
+// 背景
+// ----------------------------------------
+
+const backgroundStars = [];
+
+for (let i = 0; i < 180; i++) {
+    backgroundStars.push({
+        x: random(0, W),
+        y: random(0, H),
+        r: random(0.4, 1.5),
+        a: random(0.15, 0.7)
+    });
+}
+
+function drawBackground() {
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, W, H);
+
+    for (const s of backgroundStars) {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+
+        ctx.fillStyle = `rgba(180,200,255,${s.a})`;
+        ctx.fill();
+    }
+}
+
+// ----------------------------------------
+// 流星の生成
+// ----------------------------------------
+
+for (let i = 0; i < CONFIG.meteorCount; i++) {
+    meteors.push(new Meteor(false));
+}
+
+for (let i = 0; i < CONFIG.redCount; i++) {
+    meteors.push(new Meteor(true));
+}
+
+// ----------------------------------------
+// マウス座標
+// ----------------------------------------
+
+function getMousePosition(event) {
+    const rect = canvas.getBoundingClientRect();
+
+    return {
+        x: (event.clientX - rect.left) * W / rect.width,
+        y: (event.clientY - rect.top) * H / rect.height
+    };
+}
+
+// ----------------------------------------
+// クリック判定
+// ----------------------------------------
+
+canvas.addEventListener("click", function(event) {
+    initializeAudio();
+
+    clicks++;
+
+    const mouse = getMousePosition(event);
+    let hit = false;
+
+    for (let i = meteors.length - 1; i >= 0; i--) {
+        const m = meteors[i];
+
+        if (!m.isRed) continue;
+
+        const distance = Math.hypot(
+            mouse.x - m.x,
+            mouse.y - m.y
+        );
+
+        if (distance < CONFIG.hitRadius) {
+            hit = true;
+
+            explode(m.x, m.y);
+            playExplosionSound();
+
+            m.reset(false);
+
+            hits++;
+            break;
+        }
+    }
+
+    if (!hit) {
+        playLaserSound();
+    }
+
+    updateScore();
+});
+
+// ----------------------------------------
+// 更新処理
+// ----------------------------------------
+
+function update(dt) {
+    for (const m of meteors) {
+        m.update(dt);
+    }
+
+    for (const p of particles) {
+        p.update(dt);
+    }
+
+    particles = particles.filter(p =>
+        p.life > 0 &&
+        p.x > -100 && p.x < W + 100 &&
+        p.y > -100 && p.y < H + 100
+    );
+
+    for (const msg of hitMessages) {
+        msg.life -= dt;
+        msg.y -= 35 * dt;
+    }
+
+    hitMessages = hitMessages.filter(m => m.life > 0);
+}
+
+// ----------------------------------------
+// 描画処理
+// ----------------------------------------
+
+function render() {
+    drawBackground();
+
+    for (const m of meteors) {
+        m.draw();
+    }
+
+    for (const p of particles) {
+        p.draw();
+    }
+
+    for (const msg of hitMessages) {
+        ctx.save();
+
+        ctx.globalAlpha = Math.max(
+            0,
+            msg.life / msg.maxLife
+        );
+
+        ctx.fillStyle = "#ff4444";
+        ctx.font = "bold 30px sans-serif";
+        ctx.textAlign = "center";
+
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = "#ff0000";
+
+        ctx.fillText("HIT!", msg.x, msg.y);
+
+        ctx.restore();
+    }
+}
+
+// ----------------------------------------
+// メインループ
+// ----------------------------------------
+
+function gameLoop(timestamp) {
+    if (!lastTime) lastTime = timestamp;
+
+    let dt = (timestamp - lastTime) / 1000;
+    lastTime = timestamp;
+
+    dt = Math.min(dt, 0.04);
+
+    update(dt);
+    render();
+
+    requestAnimationFrame(gameLoop);
+}
+
+updateScore();
+requestAnimationFrame(gameLoop);
+
+</script>
+</body>
+</html>
